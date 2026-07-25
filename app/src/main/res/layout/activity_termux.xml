@@ -144,7 +144,7 @@
                             android:textAllCaps="true"
                             android:textColor="?attr/termuxColorOnSurface"
                             android:textSize="11sp"
-                            android:tooltipText="Split Vertical (Ctrl+B \")" />
+                            android:tooltipText='Split Vertical (Ctrl+B \")' />
 
                         <com.google.android.material.button.MaterialButton
                             android:id="@+id/close_pane_button"
