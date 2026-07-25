@@ -31,6 +31,7 @@ import com.termux.terminal.TerminalColors;
 import com.termux.terminal.TerminalSession;
 import com.termux.terminal.TerminalSessionClient;
 import com.termux.view.TerminalView;
+import android.view.Gravity;
 import android.view.View;
 import java.io.File;
 import java.io.FileInputStream;
@@ -405,10 +406,9 @@ public class TermuxTerminalSessionActivityClient extends TermuxTerminalSessionCl
             }
             TermuxSession newTermuxSession = service.createTermuxSession(
                 null, null, null, workingDirectory, isFailSafe, sessionName);
-            if (newTermuxSession == null) return;
-            TerminalSession newTerminalSession = newTermuxSession.getTerminalSession();
-            setCurrentSession(newTerminalSession);
-            mActivity.getDrawer().closeDrawers();
+            if (newTermuxSession != null) {
+                mActivity.getDrawer().openDrawer(Gravity.LEFT);
+            }
             return;
         }
         
