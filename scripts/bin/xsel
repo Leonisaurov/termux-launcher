@@ -1,7 +1,7 @@
 #!/data/data/com.termux/files/usr/bin/bash
 #
 # xsel - X11 clipboard tool for Termux Android
-# Uses Android clipboard via ContentProvider, falls back to Termux:API.
+# Uses multiple backends: cmd clipboard, termux-clipboard, ContentProvider
 # If X11 is detected, delegates to system xsel.
 
 # Detect X11
@@ -9,52 +9,85 @@ if [ -n "$DISPLAY" ] && command -v /usr/bin/xsel &>/dev/null; then
     exec /usr/bin/xsel "$@"
 fi
 
-# Determine content provider URI dynamically from package name
-if [ -f "/data/data/com.termux/files/home/Develop/Patch/termux-app/VERSION" ]; then
-    PACKAGE="com.termux"
-else
-    PACKAGE="com.termux"
-fi
-CONTENT_URI="content://${PACKAGE}.clipboard"
+# --- Backend detection ---
+BACKEND=""
 
-# Backends
+# 1. Try cmd clipboard (Android native, works on most devices)
+if [ -z "$BACKEND" ] && command -v cmd &>/dev/null; then
+    if cmd clipboard get-text &>/dev/null; then
+        BACKEND="cmd"
+    fi
+fi
+
+# 2. Try termux-clipboard (Termux:API)
+if [ -z "$BACKEND" ] && command -v termux-clipboard-get &>/dev/null; then
+    if termux-clipboard-get &>/dev/null; then
+        BACKEND="termux-api"
+    else
+        # Might work despite empty clipboard
+        BACKEND="termux-api"
+    fi
+fi
+
+# 3. Try ContentProvider (works on debuggable builds)
+if [ -z "$BACKEND" ] && [ -x /system/bin/content ]; then
+    if /system/bin/content read --uri "content://com.termux.clipboard/get" &>/dev/null; then
+        BACKEND="content"
+    fi
+fi
+
+# --- Backend functions ---
 get_clipboard() {
-    # 1. Try Android content provider
-    if [ -x /system/bin/content ]; then
-        local result
-        result=$(/system/bin/content read --uri "${CONTENT_URI}/get" 2>/dev/null | \
-            sed -n 's/.*value=//p' | head -1)
-        if [ -n "$result" ]; then
-            echo "$result"
-            return 0
-        fi
-    fi
-    # 2. Try Termux:API
-    if command -v termux-clipboard-get &>/dev/null; then
-        termux-clipboard-get
-        return $?
-    fi
-    echo "xsel: no clipboard backend available" >&2
-    return 1
+    case "$BACKEND" in
+        cmd)
+            cmd clipboard get-text 2>/dev/null
+            ;;
+        termux-api)
+            termux-clipboard-get 2>/dev/null
+            ;;
+        content)
+            /system/bin/content read --uri "content://com.termux.clipboard/get" 2>/dev/null | \
+                sed -n 's/.*value=//p' | head -1
+            ;;
+        *)
+            return 1
+            ;;
+    esac
 }
 
 set_clipboard() {
     local text="$1"
-    # 1. Try Android content provider
-    if [ -x /system/bin/content ]; then
-        /system/bin/content write --uri "${CONTENT_URI}/set" \
-            --bind text:s:"$text" 2>/dev/null && return 0
-    fi
-    # 2. Try Termux:API
-    if command -v termux-clipboard-set &>/dev/null; then
-        echo -n "$text" | termux-clipboard-set
-        return $?
-    fi
-    echo "xsel: no clipboard backend available" >&2
-    return 1
+    case "$BACKEND" in
+        cmd)
+            cmd clipboard put-text "$text" 2>/dev/null
+            ;;
+        termux-api)
+            echo -n "$text" | termux-clipboard-set 2>/dev/null
+            ;;
+        content)
+            /system/bin/content write --uri "content://com.termux.clipboard/set" \
+                --bind text:s:"$text" 2>/dev/null
+            ;;
+        *)
+            return 1
+            ;;
+    esac
 }
 
-# Parse arguments
+# --- If no backend found, show help ---
+if [ -z "$BACKEND" ]; then
+    echo "xsel: no clipboard backend available" >&2
+    echo "" >&2
+    echo "Install Termux:API for clipboard support:" >&2
+    echo "  pkg install termux-api" >&2
+    echo "" >&2
+    echo "Or use Android's clipboard via:" >&2
+    echo "  cmd clipboard put-text <text>   (write)" >&2
+    echo "  cmd clipboard get-text          (read)" >&2
+    exit 1
+fi
+
+# --- Parse arguments ---
 ACTION=""
 while [ $# -gt 0 ]; do
     case "$1" in
@@ -70,6 +103,7 @@ while [ $# -gt 0 ]; do
             echo "  -c, --clear    Clear clipboard"
             echo "  -b, --clipboard Use clipboard selection (default)"
             echo ""
+            echo "Backend: ${BACKEND}"
             echo "If DISPLAY is set, delegates to system xsel."
             exit 0
             ;;
