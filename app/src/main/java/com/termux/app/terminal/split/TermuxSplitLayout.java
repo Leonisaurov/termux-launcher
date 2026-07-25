@@ -583,7 +583,7 @@ public class TermuxSplitLayout extends ViewGroup implements View.OnDragListener 
     }
 
     @Nullable
-    private TerminalView getTerminalViewByOrder(int order) {
+    public TerminalView getTerminalViewByOrder(int order) {
         LeafNode targetLeaf = findLeafAt(mRootNode, order, new int[]{0});
         if (targetLeaf == null) return null;
         for (Map.Entry<TerminalView, LeafNode> entry : mViewToLeafMap.entrySet()) {
