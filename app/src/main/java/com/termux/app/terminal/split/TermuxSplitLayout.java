@@ -6,6 +6,7 @@ import android.graphics.Canvas;
 import android.graphics.Paint;
 import android.graphics.Rect;
 import android.util.AttributeSet;
+import android.view.DragEvent;
 import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewGroup;
@@ -20,7 +21,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-public class TermuxSplitLayout extends ViewGroup {
+public class TermuxSplitLayout extends ViewGroup implements View.OnDragListener {
 
     public interface SplitLayoutCallback {
         TerminalView createNewTerminalView();
@@ -32,6 +33,7 @@ public class TermuxSplitLayout extends ViewGroup {
     private static final int FOCUS_BORDER_SIZE_DP = 2;
     private static final int FOCUS_BORDER_COLOR = 0xFF4CAF50;
     private static final int DIVIDER_COLOR = 0xFF37474F;
+    private static final int MAX_PANES = 8;
 
     private static final int DIVIDER_TOUCH_SLOP_DP = 20;
     private static final float MIN_PANE_RATIO = 0.15f;
@@ -73,6 +75,7 @@ public class TermuxSplitLayout extends ViewGroup {
         setWillNotDraw(false);
         setFocusable(false);
         setFocusableInTouchMode(false);
+        setOnDragListener(this);
 
         float density = Resources.getSystem().getDisplayMetrics().density;
         mDividerSizePx = (int) (DEFAULT_DIVIDER_SIZE_DP * density);
@@ -706,5 +709,58 @@ public class TermuxSplitLayout extends ViewGroup {
                 }
             }
         });
+    }
+
+    @Override
+    public boolean onDragEvent(DragEvent event) {
+        switch (event.getAction()) {
+            case DragEvent.ACTION_DRAG_STARTED:
+                return event.getClipDescription() != null
+                    && event.getClipDescription().getLabel().equals("termux-session");
+
+            case DragEvent.ACTION_DRAG_LOCATION:
+                return true;
+
+            case DragEvent.ACTION_DROP:
+                return handleDrop(event);
+
+            case DragEvent.ACTION_DRAG_ENDED:
+                return true;
+
+            default:
+                return false;
+        }
+    }
+
+    private boolean handleDrop(DragEvent event) {
+        if (getPaneCount() >= MAX_PANES) return false;
+
+        float dropX = event.getX();
+        float dropY = event.getY();
+
+        Orientation orientation = determineDropOrientation(dropX, dropY);
+        splitFocusedPane(orientation);
+        return true;
+    }
+
+    private Orientation determineDropOrientation(float dropX, float dropY) {
+        int width = getWidth();
+        int height = getHeight();
+        float centerX = width / 2f;
+        float centerY = height / 2f;
+        float dx = dropX - centerX;
+        float dy = dropY - centerY;
+
+        float margin = 0.2f * Math.min(width, height) / 2f;
+
+        if (Math.abs(dx) < margin && Math.abs(dy) < margin) {
+            return Orientation.VERTICAL;
+        }
+
+        if (Math.abs(dx) >= Math.abs(dy)) {
+            return Orientation.VERTICAL;
+        } else {
+            return Orientation.HORIZONTAL;
+        }
     }
 }

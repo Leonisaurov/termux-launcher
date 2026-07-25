@@ -6,6 +6,7 @@ import android.app.WallpaperInfo;
 import android.app.WallpaperManager;
 import android.content.ActivityNotFoundException;
 import android.content.BroadcastReceiver;
+import android.content.ClipData;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.res.ColorStateList;
@@ -58,6 +59,7 @@ import android.view.ViewGroup;
 import android.view.ViewOutlineProvider;
 import android.view.ViewParent;
 import android.view.ViewTreeObserver;
+import android.view.DragShadowBuilder;
 import android.view.WindowManager;
 import android.util.DisplayMetrics;
 import android.util.LruCache;
@@ -144,6 +146,7 @@ import com.termux.app.terminal.split.BranchNode;
 import com.termux.app.terminal.split.LeafNode;
 import com.termux.app.terminal.split.SplitNode;
 import com.termux.app.terminal.split.TermuxSplitUtils;
+import com.termux.app.terminal.split.MiniSplitView;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
@@ -5376,6 +5379,11 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
         // Get the split layout (replaces FrameLayout terminal_surface_host in XML)
         mSplitLayout = findViewById(R.id.terminal_split_layout);
 
+        // If adapter already exists, notify it of the layout
+        if (mTermuxSessionListViewController != null) {
+            mTermuxSessionListViewController.setSplitLayout(mSplitLayout);
+        }
+
         // Create the initial TerminalView for the first pane
         TerminalView initialView = new TerminalView(this, null);
         initialView.setTerminalViewClient(mTermuxTerminalViewClient);
@@ -5428,11 +5436,26 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
                         mTermuxTerminalViewClient.showKeyboardForFocusedPane();
                     }
                 }
+                // Update MiniSplitView and grouped list when layout changes
+                MiniSplitView miniSplitView = findViewById(R.id.mini_split_view);
+                if (miniSplitView != null) {
+                    miniSplitView.updateFromLayout();
+                }
+                if (mTermuxSessionListViewController != null) {
+                    mTermuxSessionListViewController.setSplitLayout(mSplitLayout);
+                }
             }
 
             @Override
             public void onPaneCountChanged(int newCount) {
-                // Optionally update UI elements
+                // Update MiniSplitView and grouped list when layout changes
+                MiniSplitView miniSplitView = findViewById(R.id.mini_split_view);
+                if (miniSplitView != null) {
+                    miniSplitView.updateFromLayout();
+                }
+                if (mTermuxSessionListViewController != null) {
+                    mTermuxSessionListViewController.setSplitLayout(mSplitLayout);
+                }
             }
         });
 
@@ -5449,6 +5472,14 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
 
         syncTerminalWallpaperRenderingMode();
         applySuggestionBarInputChar();
+
+        // Setup MiniSplitView in drawer
+        MiniSplitView miniSplitView = findViewById(R.id.mini_split_view);
+        if (miniSplitView != null) {
+            miniSplitView.setSplitLayout(mSplitLayout);
+            miniSplitView.setVisibility(View.VISIBLE);
+        }
+
         if (mTermuxTerminalViewClient != null)
             mTermuxTerminalViewClient.onCreate();
         if (mTermuxTerminalSessionActivityClient != null)
@@ -6181,6 +6212,19 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
         termuxSessionsListView.setAdapter(mTermuxSessionListViewController);
         termuxSessionsListView.setOnItemClickListener(mTermuxSessionListViewController);
         termuxSessionsListView.setOnItemLongClickListener(mTermuxSessionListViewController);
+
+        // Setup grouped session list
+        if (mSplitLayout != null) {
+            mTermuxSessionListViewController.setSplitLayout(mSplitLayout);
+        }
+
+        // Setup drag-and-drop from drawer
+        mTermuxSessionListViewController.setOnSessionDragListener((session, view) -> {
+            int sessionIndex = mTermuxService.getTermuxSessions().indexOf(session);
+            if (sessionIndex < 0) return;
+            ClipData data = ClipData.newPlainText("termux-session", String.valueOf(sessionIndex));
+            view.startDragAndDrop(data, new View.DragShadowBuilder(view), null, 0);
+        });
     }
 
     private void setTerminalToolbarView(Bundle savedInstanceState) {

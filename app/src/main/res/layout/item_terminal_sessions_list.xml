@@ -1,9 +1,36 @@
-<com.google.android.material.textview.MaterialTextView xmlns:android="http://schemas.android.com/apk/res/android"
-    android:id="@+id/session_title"
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="?android:attr/listPreferredItemHeight"
+    android:orientation="horizontal"
+    android:gravity="center_vertical"
     android:background="@drawable/session_background_selected"
-    android:ellipsize="marquee"
-    android:gravity="start|center_vertical"
-    android:padding="6dip"
-    android:textSize="14sp" />
+    android:padding="6dip">
+
+    <TextView
+        android:id="@+id/drag_icon"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text=" ☰ "
+        android:textSize="16sp"
+        android:visibility="gone"
+        android:layout_marginEnd="4dp" />
+
+    <TextView
+        android:id="@+id/pane_label"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:textSize="12sp"
+        android:textColor="#888888"
+        android:visibility="gone"
+        android:layout_marginEnd="4dp" />
+
+    <com.google.android.material.textview.MaterialTextView
+        android:id="@+id/session_title"
+        android:layout_width="0dp"
+        android:layout_height="match_parent"
+        android:layout_weight="1"
+        android:ellipsize="marquee"
+        android:gravity="start|center_vertical"
+        android:textSize="14sp" />
+
+</LinearLayout>

@@ -104,6 +104,17 @@
                             app:tint="?attr/termuxColorOnSurfaceVariant" />
                     </LinearLayout>
 
+                    <com.termux.app.terminal.split.MiniSplitView
+                        android:id="@+id/mini_split_view"
+                        android:layout_width="match_parent"
+                        android:layout_height="120dp"
+                        android:layout_marginLeft="8dp"
+                        android:layout_marginRight="8dp"
+                        android:layout_marginTop="4dp"
+                        android:layout_marginBottom="4dp"
+                        android:background="@drawable/mini_split_background"
+                        android:visibility="gone" />
+
                     <ListView
                         android:id="@+id/terminal_sessions_list"
                         android:layout_width="match_parent"
