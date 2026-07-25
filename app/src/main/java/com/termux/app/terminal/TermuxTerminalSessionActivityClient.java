@@ -30,6 +30,8 @@ import com.termux.shared.logger.Logger;
 import com.termux.terminal.TerminalColors;
 import com.termux.terminal.TerminalSession;
 import com.termux.terminal.TerminalSessionClient;
+import com.termux.view.TerminalView;
+import android.view.View;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.InputStream;
@@ -310,7 +312,6 @@ public class TermuxTerminalSessionActivityClient extends TermuxTerminalSessionCl
                     TerminalView tv = (TerminalView) child;
                     if (tv.getCurrentSession() == session) {
                         mActivity.getSplitLayout().setFocusedPaneIndex(i);
-                        mActivity.getDrawer().closeDrawers();
                         return;
                     }
                 }
