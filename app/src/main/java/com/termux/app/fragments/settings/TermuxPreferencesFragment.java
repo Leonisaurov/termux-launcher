@@ -39,8 +39,14 @@ public class TermuxPreferencesFragment extends MaterialPreferenceFragment {
     private void installXselScript() {
         try {
             String homeDir = System.getenv("HOME");
-            if (homeDir == null) {
-                Toast.makeText(requireContext(), "HOME not set", Toast.LENGTH_SHORT).show();
+            if (homeDir == null || homeDir.isEmpty()) {
+                java.io.File filesDir = requireContext().getFilesDir();
+                if (filesDir != null && filesDir.getParentFile() != null) {
+                    homeDir = new java.io.File(filesDir.getParentFile(), "home").getAbsolutePath();
+                }
+            }
+            if (homeDir == null || homeDir.isEmpty()) {
+                Toast.makeText(requireContext(), "Cannot determine home directory", Toast.LENGTH_SHORT).show();
                 return;
             }
             File localBin = new File(homeDir, ".local/bin");
