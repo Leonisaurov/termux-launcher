@@ -5391,6 +5391,18 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
                 TerminalView newView = new TerminalView(TermuxActivity.this, null);
                 // All TerminalViews use the SplitTerminalViewClient wrapper
                 newView.setTerminalViewClient(mSplitTerminalViewClient);
+                // Create a new session and attach it to the new TerminalView
+                if (mTermuxService != null) {
+                    String workingDir = getCurrentSession() != null ? getCurrentSession().getCwd() : null;
+                    TermuxSession newTermuxSession = mTermuxService.createTermuxSession(
+                        null, null, null, workingDir, false, null);
+                    if (newTermuxSession != null) {
+                        TerminalSession terminalSession = newTermuxSession.getTerminalSession();
+                        if (terminalSession != null) {
+                            newView.attachSession(terminalSession);
+                        }
+                    }
+                }
                 return newView;
             }
 
@@ -7290,15 +7302,9 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
      * Split the focused pane horizontally (left/right).
      */
     public void splitHorizontal() {
-        if (mSplitLayout != null && mTermuxService != null) {
-            // Create a new session for the new pane
-            String workingDir = getCurrentSession() != null ? getCurrentSession().getCwd() : null;
-            TermuxSession newTermuxSession = mTermuxService.createTermuxSession(
-                null, null, null, workingDir, false, null);
-            if (newTermuxSession != null) {
-                mSplitLayout.splitFocusedPane(BranchNode.Orientation.HORIZONTAL);
-                termuxSessionListNotifyUpdated();
-            }
+        if (mSplitLayout != null) {
+            mSplitLayout.splitFocusedPane(BranchNode.Orientation.HORIZONTAL);
+            termuxSessionListNotifyUpdated();
         }
     }
 
@@ -7306,14 +7312,9 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
      * Split the focused pane vertically (top/bottom).
      */
     public void splitVertical() {
-        if (mSplitLayout != null && mTermuxService != null) {
-            String workingDir = getCurrentSession() != null ? getCurrentSession().getCwd() : null;
-            TermuxSession newTermuxSession = mTermuxService.createTermuxSession(
-                null, null, null, workingDir, false, null);
-            if (newTermuxSession != null) {
-                mSplitLayout.splitFocusedPane(BranchNode.Orientation.VERTICAL);
-                termuxSessionListNotifyUpdated();
-            }
+        if (mSplitLayout != null) {
+            mSplitLayout.splitFocusedPane(BranchNode.Orientation.VERTICAL);
+            termuxSessionListNotifyUpdated();
         }
     }
 

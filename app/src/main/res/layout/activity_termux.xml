@@ -116,6 +116,49 @@
                         android:divider="@android:color/transparent"
                         android:longClickable="true" />
 
+                    <!-- Split buttons section (vertical, between settings and sessions) -->
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="vertical"
+                        android:paddingTop="4dp"
+                        android:paddingBottom="4dp">
+
+                        <com.google.android.material.button.MaterialButton
+                            android:id="@+id/split_horizontal_button"
+                            style="?android:attr/buttonBarButtonStyle"
+                            android:layout_width="match_parent"
+                            android:layout_height="48dp"
+                            android:text="⤡ Split Horizontal"
+                            android:textAllCaps="true"
+                            android:textColor="?attr/termuxColorOnSurface"
+                            android:textSize="11sp"
+                            android:tooltipText="Split Horizontal (Ctrl+B %)" />
+
+                        <com.google.android.material.button.MaterialButton
+                            android:id="@+id/split_vertical_button"
+                            style="?android:attr/buttonBarButtonStyle"
+                            android:layout_width="match_parent"
+                            android:layout_height="48dp"
+                            android:text="⤢ Split Vertical"
+                            android:textAllCaps="true"
+                            android:textColor="?attr/termuxColorOnSurface"
+                            android:textSize="11sp"
+                            android:tooltipText="Split Vertical (Ctrl+B \")" />
+
+                        <com.google.android.material.button.MaterialButton
+                            android:id="@+id/close_pane_button"
+                            style="?android:attr/buttonBarButtonStyle"
+                            android:layout_width="match_parent"
+                            android:layout_height="48dp"
+                            android:text="✕ Close Pane"
+                            android:textAllCaps="true"
+                            android:textColor="?attr/termuxColorOnSurface"
+                            android:textSize="11sp"
+                            android:tooltipText="Close Pane (Ctrl+B x)" />
+                    </LinearLayout>
+
+                    <!-- Bottom buttons (Keyboard + New Session) -->
                     <LinearLayout
                         style="?android:attr/buttonBarStyle"
                         android:layout_width="match_parent"
@@ -132,48 +175,6 @@
                             android:text="@string/action_toggle_soft_keyboard"
                             android:textAllCaps="true"
                             android:textColor="?attr/termuxColorOnSurface" />
-
-                        <com.google.android.material.button.MaterialButton
-                            android:id="@+id/split_horizontal_button"
-                            style="?android:attr/buttonBarButtonStyle"
-                            android:layout_width="wrap_content"
-                            android:layout_height="60dp"
-                            android:layout_weight="1"
-                            android:layout_gravity="center_horizontal"
-                            android:padding="4dp"
-                            android:text="⤡"
-                            android:textAllCaps="true"
-                            android:textColor="?attr/termuxColorOnSurface"
-                            android:textSize="12sp"
-                            android:tooltipText="Split Horizontal" />
-
-                        <com.google.android.material.button.MaterialButton
-                            android:id="@+id/split_vertical_button"
-                            style="?android:attr/buttonBarButtonStyle"
-                            android:layout_width="wrap_content"
-                            android:layout_height="60dp"
-                            android:layout_weight="1"
-                            android:layout_gravity="center_horizontal"
-                            android:padding="4dp"
-                            android:text="⤢"
-                            android:textAllCaps="true"
-                            android:textColor="?attr/termuxColorOnSurface"
-                            android:textSize="12sp"
-                            android:tooltipText="Split Vertical" />
-
-                        <com.google.android.material.button.MaterialButton
-                            android:id="@+id/close_pane_button"
-                            style="?android:attr/buttonBarButtonStyle"
-                            android:layout_width="wrap_content"
-                            android:layout_height="60dp"
-                            android:layout_weight="1"
-                            android:layout_gravity="center_horizontal"
-                            android:padding="4dp"
-                            android:text="✕"
-                            android:textAllCaps="true"
-                            android:textColor="?attr/termuxColorOnSurface"
-                            android:textSize="12sp"
-                            android:tooltipText="Close Pane" />
 
                         <com.google.android.material.button.MaterialButton
                             android:id="@+id/new_session_button"
