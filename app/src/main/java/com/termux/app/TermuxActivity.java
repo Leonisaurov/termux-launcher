@@ -7371,33 +7371,37 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
      */
     public void closePaneForSession(TerminalSession session) {
         if (mSplitLayout == null || session == null) return;
-        for (int i = 0; i < mSplitLayout.getChildCount(); i++) {
-            View child = mSplitLayout.getChildAt(i);
-            if (child instanceof TerminalView) {
-                TerminalView tv = (TerminalView) child;
-                if (tv.getCurrentSession() == session) {
-                    LeafNode leaf = mSplitLayout.getViewToLeafMap().get(tv);
-                    if (leaf != null) {
-                        int leafOrder = mSplitLayout.getLeafOrder(leaf);
-                        mSplitLayout.setFocusedPaneIndex(leafOrder);
-                    } else {
-                        mSplitLayout.setFocusedPaneIndex(i);
-                    }
-                    if (mSplitLayout.getPaneCount() > 1) {
-                        mSplitLayout.closeFocusedPane();
-                    }
-                    // Clean up the session from TermuxService.
-                    // closeFocusedPane() only removes the View, not the session.
-                    TermuxService service = getTermuxService();
-                    if (service != null) {
-                        service.removeTermuxSession(session);
-                        if (service.getTermuxSessionsSize() == 0) {
-                            finishActivityIfNotFinishing();
+        if (mIsClosingPane) return;
+        mIsClosingPane = true;
+        try {
+            for (int i = 0; i < mSplitLayout.getChildCount(); i++) {
+                View child = mSplitLayout.getChildAt(i);
+                if (child instanceof TerminalView) {
+                    TerminalView tv = (TerminalView) child;
+                    if (tv.getCurrentSession() == session) {
+                        LeafNode leaf = mSplitLayout.getViewToLeafMap().get(tv);
+                        if (leaf != null) {
+                            int leafOrder = mSplitLayout.getLeafOrder(leaf);
+                            mSplitLayout.setFocusedPaneIndex(leafOrder);
+                        } else {
+                            mSplitLayout.setFocusedPaneIndex(i);
                         }
+                        if (mSplitLayout.getPaneCount() > 1) {
+                            mSplitLayout.closeFocusedPane();
+                        }
+                        TermuxService service = getTermuxService();
+                        if (service != null) {
+                            service.removeTermuxSession(session);
+                            if (service.getTermuxSessionsSize() == 0) {
+                                finishActivityIfNotFinishing();
+                            }
+                        }
+                        break;
                     }
-                    break;
                 }
             }
+        } finally {
+            mIsClosingPane = false;
         }
     }
 
