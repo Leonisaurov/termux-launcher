@@ -7338,20 +7338,24 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
         }
     }
 
+    /**
+     * Download the latest APK from GitHub Releases and trigger installation.
+     * Constructs download URL directly from release tag (no gh CLI needed).
+     */
     private void downloadAndInstallUpdate() {
         Toast.makeText(this, "⬇ Buscando última versión...", Toast.LENGTH_LONG).show();
         
         new Thread(() -> {
             try {
                 String repo = "Leonisaurov/termux-launcher";
-                String apiUrl = "https://api.github.com/repos/" + repo + "/releases?per_page=5";
+                String apiUrl = "https://api.github.com/repos/" + repo + "/releases?per_page=10";
                 
                 // Step 1: Fetch latest releases via GitHub API
                 java.net.URL url = new java.net.URL(apiUrl);
                 java.net.HttpURLConnection conn = (java.net.HttpURLConnection) url.openConnection();
                 conn.setRequestMethod("GET");
                 conn.setRequestProperty("Accept", "application/vnd.github+json");
-                conn.setRequestProperty("User-Agent", "Termux-Split");
+                conn.setRequestProperty("User-Agent", "Termux-Split-App");
                 conn.connect();
                 
                 int responseCode = conn.getResponseCode();
@@ -7373,66 +7377,48 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
                 
                 String json = jsonResponse.toString();
                 
-                // Find the latest nightly-split release with an APK asset
-                String downloadUrl = null;
-                String releaseName = null;
-                
-                // Parse manually to avoid Gson dependency
+                // Step 2: Find the latest nightly-split tag
+                String tagName = null;
                 int idx = 0;
                 while ((idx = json.indexOf("\"tag_name\"", idx)) != -1) {
                     int valueStart = json.indexOf("\"", idx + 10) + 1;
                     int valueEnd = json.indexOf("\"", valueStart);
-                    String tagName = json.substring(valueStart, valueEnd);
+                    String tag = json.substring(valueStart, valueEnd);
                     
-                    if (tagName.startsWith("nightly-split-")) {
-                        // Found a nightly release, look for APK asset
-                        int assetsIdx = json.indexOf("\"assets\"", idx);
-                        if (assetsIdx != -1) {
-                            int assetIdx = json.indexOf("\"browser_download_url\"", assetsIdx);
-                            while (assetIdx != -1 && assetIdx < assetsIdx + 5000) {
-                                int urlStart = json.indexOf("\"", assetIdx + 21) + 1;
-                                int urlEnd = json.indexOf("\"", urlStart);
-                                String assetUrl = json.substring(urlStart, urlEnd);
-                                if (assetUrl.endsWith(".apk")) {
-                                    downloadUrl = assetUrl;
-                                    // Get the release name
-                                    int nameIdx = json.indexOf("\"name\"", idx);
-                                    if (nameIdx != -1 && nameIdx < assetsIdx) {
-                                        int nStart = json.indexOf("\"", nameIdx + 6) + 1;
-                                        int nEnd = json.indexOf("\"", nStart);
-                                        releaseName = json.substring(nStart, nEnd);
-                                    }
-                                    break;
-                                }
-                                assetIdx = json.indexOf("\"browser_download_url\"", assetIdx + 1);
-                            }
-                        }
-                        if (downloadUrl != null) break;
+                    if (tag.startsWith("nightly-split-")) {
+                        tagName = tag;
+                        break;
                     }
                     idx = valueEnd + 1;
                 }
                 
-                if (downloadUrl == null) {
-                    showUpdateError("No se encontró ningún release nightly-split.\n" +
-                        "Ejecuta un build en GitHub Actions primero.");
+                if (tagName == null) {
+                    showUpdateError("No nightly-split releases found.\n" +
+                        "Run a workflow build first, or download from:\n" +
+                        "https://github.com/" + repo + "/releases");
                     return;
                 }
                 
-                final String apkUrl = downloadUrl;
-                final String relName = releaseName != null ? releaseName : "latest";
+                // Step 3: Construct download URL directly
+                String apkUrl = "https://github.com/" + repo + "/releases/download/"
+                    + tagName + "/termux-app-split.apk";
                 
+                final String fTagName = tagName;
                 runOnUiThread(() -> Toast.makeText(TermuxActivity.this,
-                    "📦 Descargando: " + relName, Toast.LENGTH_SHORT).show());
+                    "📦 Descargando: " + fTagName, Toast.LENGTH_SHORT).show());
                 
-                // Step 2: Download the APK
+                // Step 4: Download the APK
                 java.net.URL apkUrl2 = new java.net.URL(apkUrl);
                 java.net.HttpURLConnection conn2 = (java.net.HttpURLConnection) apkUrl2.openConnection();
                 conn2.setRequestMethod("GET");
-                conn2.setRequestProperty("User-Agent", "Termux-Split");
+                conn2.setRequestProperty("User-Agent", "Termux-Split-App");
+                conn2.setInstanceFollowRedirects(true);
                 conn2.connect();
                 
-                if (conn2.getResponseCode() != 200) {
-                    showUpdateError("Error descargando APK: HTTP " + conn2.getResponseCode());
+                int responseCode2 = conn2.getResponseCode();
+                if (responseCode2 != 200) {
+                    showUpdateError("Download failed: HTTP " + responseCode2
+                        + "\nURL: " + apkUrl);
                     return;
                 }
                 
@@ -7455,7 +7441,7 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
                 
                 long sizeMb = totalRead / (1024 * 1024);
                 
-                // Step 3: Open with Android package installer
+                // Step 5: Open with Android package installer
                 runOnUiThread(() -> Toast.makeText(TermuxActivity.this,
                     "✅ APK descargado (" + sizeMb + "MB). Abriendo instalador...",
                     Toast.LENGTH_LONG).show());

@@ -329,6 +329,32 @@ public class TermuxSplitLayout extends ViewGroup {
     }
 
     @Override
+    public boolean dispatchTouchEvent(MotionEvent ev) {
+        if (ev.getAction() == MotionEvent.ACTION_DOWN) {
+            float x = ev.getX();
+            float y = ev.getY();
+            int childCount = getChildCount();
+            for (int i = 0; i < childCount; i++) {
+                View child = getChildAt(i);
+                if (child instanceof TerminalView && child.getVisibility() == VISIBLE) {
+                    android.graphics.Rect hitRect = new android.graphics.Rect();
+                    child.getHitRect(hitRect);
+                    if (hitRect.contains((int) x, (int) y)) {
+                        if (mFocusedPaneIndex != i) {
+                            mFocusedPaneIndex = i;
+                            child.post(() -> child.requestFocus());
+                            notifyPaneFocused();
+                            invalidate();
+                        }
+                        break;
+                    }
+                }
+            }
+        }
+        return super.dispatchTouchEvent(ev);
+    }
+
+    @Override
     public boolean onTouchEvent(MotionEvent event) {
         float x = event.getX();
         float y = event.getY();
