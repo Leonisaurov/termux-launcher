@@ -10,10 +10,8 @@ import android.text.style.StyleSpan;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
-import android.widget.AbsListView;
 import android.widget.AdapterView;
 import android.widget.BaseAdapter;
-import androidx.drawerlayout.widget.DrawerLayout;
 import android.widget.TextView;
 
 import androidx.annotation.NonNull;
@@ -45,7 +43,7 @@ public class TermuxSessionsListViewController extends BaseAdapter
 
     static final int TYPE_HEADER = 0;
     static final int TYPE_SESSION = 1;
-    static final int TYPE_SEPARATOR = 2;
+    static final int TYPE_SPLIT_GROUP = 2;
 
     final StyleSpan boldSpan = new StyleSpan(Typeface.BOLD);
     final StyleSpan italicSpan = new StyleSpan(Typeface.ITALIC);
@@ -53,9 +51,12 @@ public class TermuxSessionsListViewController extends BaseAdapter
     static class ListItem {
         int type;
         String headerText;
+        String title;
         TermuxSession session;
         boolean isStandalone;
         int paneOrder;
+        boolean isChild;
+        int grandchildCount;
     }
 
     public TermuxSessionsListViewController(TermuxActivity activity, List<TermuxSession> sessions) {
@@ -73,18 +74,16 @@ public class TermuxSessionsListViewController extends BaseAdapter
         mItems.clear();
 
         if (mSplitLayout == null || mSplitLayout.getRootNode() == null || mSessions == null || mSessions.isEmpty()) {
-            ListItem header = new ListItem();
-            header.type = TYPE_HEADER;
-            header.headerText = "Terminals";
-            mItems.add(header);
             for (TermuxSession s : mSessions) {
                 ListItem item = new ListItem();
                 item.type = TYPE_SESSION;
                 item.session = s;
                 item.isStandalone = true;
                 item.paneOrder = -1;
+                item.isChild = false;
                 mItems.add(item);
             }
+            notifyDataSetChanged();
             return;
         }
 
@@ -114,10 +113,11 @@ public class TermuxSessionsListViewController extends BaseAdapter
         splitSessions.sort(Comparator.comparingInt(s -> sessionToPaneOrder.getOrDefault(s, 0)));
 
         if (!splitSessions.isEmpty()) {
-            ListItem header = new ListItem();
-            header.type = TYPE_HEADER;
-            header.headerText = "Split Window";
-            mItems.add(header);
+            ListItem group = new ListItem();
+            group.type = TYPE_SPLIT_GROUP;
+            group.title = "Split Window [" + splitSessions.size() + "]";
+            group.grandchildCount = splitSessions.size();
+            mItems.add(group);
 
             for (int i = 0; i < splitSessions.size(); i++) {
                 TermuxSession s = splitSessions.get(i);
@@ -126,28 +126,19 @@ public class TermuxSessionsListViewController extends BaseAdapter
                 item.session = s;
                 item.isStandalone = false;
                 item.paneOrder = sessionToPaneOrder.getOrDefault(s, i) + 1;
+                item.isChild = true;
                 mItems.add(item);
             }
         }
 
-        if (!standaloneSessions.isEmpty()) {
-            ListItem sep = new ListItem();
-            sep.type = TYPE_SEPARATOR;
-            mItems.add(sep);
-
-            ListItem header = new ListItem();
-            header.type = TYPE_HEADER;
-            header.headerText = "Standalone";
-            mItems.add(header);
-
-            for (TermuxSession s : standaloneSessions) {
-                ListItem item = new ListItem();
-                item.type = TYPE_SESSION;
-                item.session = s;
-                item.isStandalone = true;
-                item.paneOrder = -1;
-                mItems.add(item);
-            }
+        for (TermuxSession s : standaloneSessions) {
+            ListItem item = new ListItem();
+            item.type = TYPE_SESSION;
+            item.session = s;
+            item.isStandalone = true;
+            item.paneOrder = -1;
+            item.isChild = false;
+            mItems.add(item);
         }
     }
 
@@ -197,34 +188,20 @@ public class TermuxSessionsListViewController extends BaseAdapter
     public View getView(int position, View convertView, @NonNull ViewGroup parent) {
         ListItem item = mItems.get(position);
 
-        if (item.type == TYPE_HEADER) {
+        if (item.type == TYPE_SPLIT_GROUP) {
             TextView tv;
-            if (convertView instanceof TextView && convertView.getTag() != null && (int) convertView.getTag() == TYPE_HEADER) {
+            if (convertView instanceof TextView && convertView.getTag() != null && (int) convertView.getTag() == TYPE_SPLIT_GROUP) {
                 tv = (TextView) convertView;
             } else {
                 tv = new TextView(mActivity);
-                tv.setTag(TYPE_HEADER);
-                tv.setPadding(16, 12, 16, 4);
-                tv.setTextSize(11);
-                tv.setTextColor(0xFF888888);
-                tv.setTypeface(Typeface.DEFAULT_BOLD);
+                tv.setTag(TYPE_SPLIT_GROUP);
+                tv.setPadding(16, 12, 16, 8);
+                tv.setTextSize(13);
+                tv.setTextColor(0xFFFFFFFF);
+                tv.setTypeface(null, Typeface.BOLD);
             }
-            tv.setText(item.headerText);
+            tv.setText(item.title);
             return tv;
-        }
-
-        if (item.type == TYPE_SEPARATOR) {
-            View sep;
-            if (convertView != null && convertView.getTag() != null && (int) convertView.getTag() == TYPE_SEPARATOR) {
-                sep = convertView;
-            } else {
-                sep = new View(mActivity);
-                sep.setTag(TYPE_SEPARATOR);
-                sep.setLayoutParams(new AbsListView.LayoutParams(
-                    ViewGroup.LayoutParams.MATCH_PARENT, 1));
-                sep.setBackgroundColor(0x33FFFFFF);
-            }
-            return sep;
         }
 
         if (convertView == null || convertView.getTag() == null || (int) convertView.getTag() != TYPE_SESSION) {
@@ -281,11 +258,28 @@ public class TermuxSessionsListViewController extends BaseAdapter
             dragIcon.setVisibility(View.GONE);
         }
 
-        if (!item.isStandalone) {
+        if (!item.isStandalone && item.paneOrder > 0) {
             paneLabel.setVisibility(View.VISIBLE);
             paneLabel.setText("Pane " + item.paneOrder);
         } else {
             paneLabel.setVisibility(View.GONE);
+        }
+
+        float density = mActivity.getResources().getDisplayMetrics().density;
+        if (item.isChild) {
+            convertView.setPadding(
+                (int) (24 * density + 0.5f),
+                convertView.getPaddingTop(),
+                convertView.getPaddingRight(),
+                convertView.getPaddingBottom()
+            );
+        } else {
+            convertView.setPadding(
+                (int) (6 * density + 0.5f),
+                convertView.getPaddingTop(),
+                convertView.getPaddingRight(),
+                convertView.getPaddingBottom()
+            );
         }
 
         return convertView;
@@ -317,10 +311,18 @@ public class TermuxSessionsListViewController extends BaseAdapter
     public void onItemClick(AdapterView<?> parent, View view, int position, long id) {
         if (position < 0 || position >= mItems.size()) return;
         ListItem item = mItems.get(position);
-        if (item.type == TYPE_SESSION && item.session != null) {
+
+        if (item.type == TYPE_SPLIT_GROUP) {
+            if (mSplitLayout != null) {
+                TerminalSession focusedSession = mSplitLayout.getFocusedSession();
+                if (focusedSession != null) {
+                    mActivity.getTermuxTerminalSessionClient().setCurrentSession(focusedSession);
+                }
+            }
+            mActivity.getDrawer().closeDrawers();
+        } else if (item.type == TYPE_SESSION && item.session != null) {
             mActivity.getTermuxTerminalSessionClient().setCurrentSession(item.session.getTerminalSession());
-            DrawerLayout drawer = mActivity.getDrawer();
-            if (drawer != null) drawer.closeDrawers();
+            mActivity.getDrawer().closeDrawers();
         }
     }
 
