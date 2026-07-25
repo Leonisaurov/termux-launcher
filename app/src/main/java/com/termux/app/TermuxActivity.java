@@ -5531,12 +5531,18 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
         // Hide split layout, show standalone
         mSplitLayout.setVisibility(View.GONE);
         mStandaloneView.setVisibility(View.VISIBLE);
-        mStandaloneView.requestFocus();
 
-        // Show keyboard
-        if (mTermuxTerminalViewClient != null) {
-            mTermuxTerminalViewClient.showKeyboardForFocusedPane();
-        }
+        // Force layout pass on the parent container
+        FrameLayout content = findViewById(R.id.terminal_content);
+        if (content != null) content.requestLayout();
+
+        // Delay focus and keyboard until the view is laid out
+        mStandaloneView.post(() -> {
+            mStandaloneView.requestFocus();
+            if (mTermuxTerminalViewClient != null) {
+                mTermuxTerminalViewClient.showKeyboardForFocusedPane();
+            }
+        });
     }
 
     /**
