@@ -7363,11 +7363,12 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
                 }
                 
                 runId = runId.trim();
+                final String finalRunId = runId;
                 String tmpDir = "/data/data/com.termux/files/usr/tmp/termux-apk-" + runId;
                 
                 // Step 2: Download the artifact
                 runOnUiThread(() -> Toast.makeText(TermuxActivity.this, 
-                    "📦 Descargando APK (run #" + runId + ")...", Toast.LENGTH_SHORT).show());
+                    "📦 Descargando APK (run #" + finalRunId + ")...", Toast.LENGTH_SHORT).show());
                 
                 ProcessBuilder pb2 = new ProcessBuilder(
                     "/data/data/com.termux/files/usr/bin/gh",
