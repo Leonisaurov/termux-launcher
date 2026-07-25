@@ -115,9 +115,21 @@ public class TermuxSessionsListViewController extends BaseAdapter
         splitSessions.sort(Comparator.comparingInt(s -> sessionToPaneOrder.getOrDefault(s, 0)));
 
         if (splitSessions.size() > 1) {
+            String focusedDisplayName;
+            TerminalSession focusedSession = mSplitLayout.getFocusedSession();
+            if (focusedSession != null) {
+                int sessionIndex = mSessions.indexOf(focusedSession);
+                if (sessionIndex >= 0) {
+                    focusedDisplayName = "[" + (sessionIndex + 1) + "] " + focusedSession.getSessionName();
+                } else {
+                    focusedDisplayName = focusedSession.getSessionName();
+                }
+            } else {
+                focusedDisplayName = "Split";
+            }
             ListItem group = new ListItem();
             group.type = TYPE_SPLIT_GROUP;
-            group.title = "Split Window [" + splitSessions.size() + "]";
+            group.title = focusedDisplayName + "  [" + splitSessions.size() + " panes]";
             group.grandchildCount = splitSessions.size();
             mItems.add(group);
 
