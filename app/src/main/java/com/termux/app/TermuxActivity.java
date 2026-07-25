@@ -7428,10 +7428,12 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
                 headConn.setInstanceFollowRedirects(true);
                 headConn.connect();
                 
-                if (headConn.getResponseCode() != 200) {
+                int headResponseCode = headConn.getResponseCode();
+                if (headResponseCode != 200) {
+                    final int finalCode = headResponseCode;
                     runOnUiThread(() -> {
                         dialog.dismiss();
-                        showUpdateError("Download failed: HTTP " + headConn.getResponseCode());
+                        showUpdateError("Download failed: HTTP " + finalCode);
                     });
                     headConn.disconnect();
                     return;
