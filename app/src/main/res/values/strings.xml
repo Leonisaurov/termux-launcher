@@ -958,4 +958,10 @@
     <string name="report_issue_preference_title">Send feedback</string>
     <string name="report_issue_preference_summary">Report a bug or suggest an idea on GitHub</string>
 
+    <!-- xsel clipboard tool -->
+    <string name="install_xsel_title">Install xsel clipboard tool</string>
+    <string name="install_xsel_summary">Extract xsel script to ~/.local/bin/ for Android clipboard access (requires restart)</string>
+    <string name="xsel_installed">xsel installed to ~/.local/bin/xsel</string>
+    <string name="xsel_extract_error">Error installing xsel: %s</string>
+
 </resources>

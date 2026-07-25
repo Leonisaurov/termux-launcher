@@ -1,0 +1,87 @@
+#!/data/data/com.termux/files/usr/bin/bash
+#
+# xsel - X11 clipboard tool for Termux Android
+# Uses Android clipboard via ContentProvider, falls back to Termux:API.
+# If X11 is detected, delegates to system xsel.
+
+# Detect X11
+if [ -n "$DISPLAY" ] && command -v /usr/bin/xsel &>/dev/null; then
+    exec /usr/bin/xsel "$@"
+fi
+
+# Determine content provider URI dynamically from package name
+if [ -f "/data/data/com.termux/files/home/Develop/Patch/termux-app/VERSION" ]; then
+    PACKAGE="com.termux"
+else
+    PACKAGE="com.termux"
+fi
+CONTENT_URI="content://${PACKAGE}.clipboard"
+
+# Backends
+get_clipboard() {
+    # 1. Try Android content provider
+    if [ -x /system/bin/content ]; then
+        local result
+        result=$(/system/bin/content read --uri "${CONTENT_URI}/get" 2>/dev/null | \
+            sed -n 's/.*value=//p' | head -1)
+        if [ -n "$result" ]; then
+            echo "$result"
+            return 0
+        fi
+    fi
+    # 2. Try Termux:API
+    if command -v termux-clipboard-get &>/dev/null; then
+        termux-clipboard-get
+        return $?
+    fi
+    echo "xsel: no clipboard backend available" >&2
+    return 1
+}
+
+set_clipboard() {
+    local text="$1"
+    # 1. Try Android content provider
+    if [ -x /system/bin/content ]; then
+        /system/bin/content write --uri "${CONTENT_URI}/set" \
+            --bind text:s:"$text" 2>/dev/null && return 0
+    fi
+    # 2. Try Termux:API
+    if command -v termux-clipboard-set &>/dev/null; then
+        echo -n "$text" | termux-clipboard-set
+        return $?
+    fi
+    echo "xsel: no clipboard backend available" >&2
+    return 1
+}
+
+# Parse arguments
+ACTION=""
+while [ $# -gt 0 ]; do
+    case "$1" in
+        -o|--output|--primary) ACTION="get" ;;
+        -i|--input)  ACTION="set" ;;
+        -c|--clear)  ACTION="clear" ;;
+        -b|--clipboard) ;; # default, ignore
+        -h|--help)
+            echo "Usage: xsel [-o|-i|-c|-b]"
+            echo ""
+            echo "  -o, --output   Print clipboard to stdout"
+            echo "  -i, --input    Read stdin into clipboard"
+            echo "  -c, --clear    Clear clipboard"
+            echo "  -b, --clipboard Use clipboard selection (default)"
+            echo ""
+            echo "If DISPLAY is set, delegates to system xsel."
+            exit 0
+            ;;
+        *) echo "xsel: unknown option: $1" >&2; exit 1 ;;
+    esac
+    shift
+done
+
+[ -z "$ACTION" ] && ACTION="get"
+
+case "$ACTION" in
+    get) get_clipboard ;;
+    set) set_clipboard "$(cat)" ;;
+    clear) set_clipboard "" ;;
+esac
