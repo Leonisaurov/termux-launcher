@@ -45,12 +45,19 @@
             android:clipChildren="false"
             android:clipToPadding="false">
 
-            <com.termux.app.terminal.split.TermuxSplitLayout
-                android:id="@+id/terminal_split_layout"
+            <FrameLayout
+                android:id="@+id/terminal_content"
                 android:layout_width="match_parent"
-                android:layout_height="match_parent"
-                android:clipChildren="false"
-                android:clipToPadding="false" />
+                android:layout_height="match_parent">
+
+                <com.termux.app.terminal.split.TermuxSplitLayout
+                    android:id="@+id/terminal_split_layout"
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:clipChildren="false"
+                    android:clipToPadding="false" />
+
+            </FrameLayout>
 
             <View
                 android:id="@+id/terminal_background"

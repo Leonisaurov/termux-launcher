@@ -219,6 +219,11 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
     SplitTerminalViewClient mSplitTerminalViewClient;
 
     /**
+     *  The standalone {@link TerminalView} used for non-split full-screen sessions.
+     */
+    TerminalView mStandaloneView = null;
+
+    /**
      *  The {@link TerminalViewClient} interface implementation to allow for communication between
      *  {@link TerminalView} and {@link TermuxActivity}.
      */
@@ -5494,10 +5499,78 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
             miniSplitView.setVisibility(paneCount > 1 ? View.VISIBLE : View.GONE);
         }
 
+        // Create standalone TerminalView for non-split sessions
+        mStandaloneView = new TerminalView(this, null);
+        mStandaloneView.setTerminalViewClient(mSplitTerminalViewClient);
+        mStandaloneView.setFocusable(true);
+        mStandaloneView.setFocusableInTouchMode(true);
+        mStandaloneView.setTextSize(mPreferences.getFontSize());
+        mStandaloneView.setVisibility(View.GONE);
+
+        FrameLayout content = findViewById(R.id.terminal_content);
+        if (content != null) {
+            content.addView(mStandaloneView);
+        }
+
         if (mTermuxTerminalViewClient != null)
             mTermuxTerminalViewClient.onCreate();
         if (mTermuxTerminalSessionActivityClient != null)
             mTermuxTerminalSessionActivityClient.onCreate();
+    }
+
+    /**
+     * Switch to show a standalone session in full-screen mode.
+     * Hides the split layout, shows the standalone TerminalView.
+     */
+    public void showStandaloneSession(TerminalSession session) {
+        if (mStandaloneView == null || session == null) return;
+
+        // Detach any current session from standalone view and attach the new one
+        mStandaloneView.attachSession(session);
+
+        // Hide split layout, show standalone
+        mSplitLayout.setVisibility(View.GONE);
+        mStandaloneView.setVisibility(View.VISIBLE);
+        mStandaloneView.requestFocus();
+
+        // Show keyboard
+        if (mTermuxTerminalViewClient != null) {
+            mTermuxTerminalViewClient.showKeyboardForFocusedPane();
+        }
+    }
+
+    /**
+     * Switch back to the split layout view.
+     * Hides the standalone view, shows the split layout.
+     */
+    public void showSplitLayout() {
+        if (mSplitLayout == null) return;
+
+        // Hide standalone, show split
+        mStandaloneView.setVisibility(View.GONE);
+        mSplitLayout.setVisibility(View.VISIBLE);
+
+        // Focus the current pane in split
+        TerminalView focusedView = mSplitLayout.getFocusedTerminalView();
+        if (focusedView != null) {
+            focusedView.requestFocus();
+        }
+
+        // Show keyboard
+        if (mTermuxTerminalViewClient != null) {
+            mTermuxTerminalViewClient.showKeyboardForFocusedPane();
+        }
+    }
+
+    /**
+     * Check if the standalone view is currently showing.
+     */
+    public boolean isShowingStandalone() {
+        return mStandaloneView != null && mStandaloneView.getVisibility() == View.VISIBLE;
+    }
+
+    public TerminalView getStandaloneView() {
+        return mStandaloneView;
     }
 
     private void initializeInAppKeyboard(@Nullable Bundle savedInstanceState) {

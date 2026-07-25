@@ -374,13 +374,40 @@ public class TermuxSessionsListViewController extends BaseAdapter
         ListItem item = mItems.get(position);
 
         if (item.type == TYPE_SPLIT_GROUP) {
-            mExpanded = !mExpanded;
-            rebuildGroupedList();
-            notifyDataSetChanged();
+            // If showing standalone, switch back to split layout
+            if (mActivity.isShowingStandalone()) {
+                mActivity.showSplitLayout();
+            }
+            // Focus the currently active pane in the split
+            if (mSplitLayout != null) {
+                TerminalSession focusedSession = mSplitLayout.getFocusedSession();
+                if (focusedSession != null) {
+                    mActivity.getTermuxTerminalSessionClient().setCurrentSession(focusedSession);
+                }
+            }
+            closeDrawer();
         } else if (item.type == TYPE_SESSION && item.session != null) {
-            mActivity.getTermuxTerminalSessionClient().setCurrentSession(item.session.getTerminalSession());
-            mActivity.getDrawer().closeDrawers();
+            // If this is a standalone session and we're showing the split layout, switch
+            if (item.isStandalone && !mActivity.isShowingStandalone()) {
+                // Show standalone session full-screen
+                mActivity.showStandaloneSession(item.session.getTerminalSession());
+                closeDrawer();
+            } else if (!item.isStandalone && mActivity.isShowingStandalone()) {
+                // Session is in split and we're showing standalone - switch back
+                mActivity.showSplitLayout();
+                // Focus the specific pane
+                mActivity.getTermuxTerminalSessionClient().setCurrentSession(item.session.getTerminalSession());
+                closeDrawer();
+            } else {
+                // Normal case: switch session within same mode
+                mActivity.getTermuxTerminalSessionClient().setCurrentSession(item.session.getTerminalSession());
+                closeDrawer();
+            }
         }
+    }
+
+    private void closeDrawer() {
+        mActivity.getDrawer().closeDrawers();
     }
 
     @Override

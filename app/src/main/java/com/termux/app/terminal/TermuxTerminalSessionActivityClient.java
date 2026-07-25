@@ -317,6 +317,11 @@ public class TermuxTerminalSessionActivityClient extends TermuxTerminalSessionCl
                     }
                 }
             }
+            // Session not found in any split pane — it's a standalone session
+            mActivity.showStandaloneSession(session);
+            checkAndScrollToSession(session);
+            updateBackgroundColor();
+            return;
         }
         
         if (mActivity.getTerminalView().attachSession(session)) {
@@ -407,7 +412,9 @@ public class TermuxTerminalSessionActivityClient extends TermuxTerminalSessionCl
             TermuxSession newTermuxSession = service.createTermuxSession(
                 null, null, null, workingDirectory, isFailSafe, sessionName);
             if (newTermuxSession != null) {
-                mActivity.getDrawer().openDrawer(Gravity.LEFT);
+                // Switch to show the new standalone session
+                mActivity.showStandaloneSession(newTermuxSession.getTerminalSession());
+                mActivity.getDrawer().closeDrawers();
             }
             return;
         }
