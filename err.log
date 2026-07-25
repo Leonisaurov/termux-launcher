@@ -1,45 +1,54 @@
-02:17:41 main.go:24: === gita started ===
-02:20:05 main.go:24: === gita started ===
-02:21:58 main.go:24: === gita started ===
-02:28:39 main.go:24: === gita started ===
-02:30:47 main.go:35: [INFO] === gita ended ===
-02:30:47 main.go:24: === gita started ===
-02:30:52 main.go:35: [INFO] === gita ended ===
-02:30:53 main.go:24: === gita started ===
-02:31:04 main.go:35: [INFO] === gita ended ===
-02:36:32 main.go:24: === gita started ===
-02:38:05 main.go:24: === gita started ===
-02:42:09 main.go:24: === gita started ===
-02:46:29 main.go:24: === gita started ===
-03:03:00 main.go:24: === gita started ===
-03:04:58 main.go:24: === gita started ===
-03:24:54 main.go:24: === gita started ===
-03:26:13 main.go:24: === gita started ===
-04:03:12 main.go:24: === gita started ===
-04:16:31 main.go:24: === gita started ===
-04:37:48 main.go:24: === gita started ===
-04:40:14 main.go:24: === gita started ===
-04:41:55 main.go:24: === gita started ===
-05:01:04 main.go:24: === gita started ===
-05:03:39 main.go:24: === gita started ===
-05:05:34 main.go:24: === gita started ===
-05:13:27 main.go:24: === gita started ===
-05:24:44 main.go:24: === gita started ===
-05:37:51 main.go:24: === gita started ===
-05:39:58 main.go:24: === gita started ===
-05:48:39 main.go:24: === gita started ===
-05:58:00 main.go:24: === gita started ===
-06:00:55 main.go:24: === gita started ===
-06:09:54 main.go:24: === gita started ===
-06:11:49 main.go:24: === gita started ===
-06:41:03 main.go:24: === gita started ===
-07:09:42 main.go:24: === gita started ===
-07:10:16 main.go:24: === gita started ===
-07:30:35 main.go:24: === gita started ===
-07:32:49 main.go:24: === gita started ===
-07:32:59 main.go:35: [INFO] === gita ended ===
-07:53:00 main.go:24: === gita started ===
-08:12:14 main.go:24: === gita started ===
-09:15:20 main.go:25: === gita started ===
-09:15:46 main.go:25: === gita started ===
-09:17:38 main.go:26: === gita started ===
+## Report Info
+
+
+**User Action**: `crash report`  
+**Sender**: `TermuxActivity`  
+**Report Timestamp**: `2026-07-25 16:09:37.659 UTC`  
+##
+
+## Crash Details
+
+**Crash Thread**: `Thread[main,5,main]`  
+**Crash Timestamp**: `2026-07-25 16:04:28.880 UTC`  
+
+**Crash Message**:
+```
+stack size 8188KB
+```
+
+
+### Stacktrace
+
+```
+java.lang.StackOverflowError: stack size 8188KB
+	at com.termux.app.terminal.TermuxSessionsListViewController.notifyDataSetChanged(TermuxSessionsListViewController.java:155)
+	at com.termux.app.terminal.TermuxSessionsListViewController.rebuildGroupedList(TermuxSessionsListViewController.java:86)
+	at com.termux.app.terminal.TermuxSessionsListViewController.notifyDataSetChanged(TermuxSessionsListViewController.java:155)
+	at com.termux.app.terminal.TermuxSessionsListViewController.rebuildGroupedList(TermuxSessionsListViewController.java:86)
+	at com.termux.app.terminal.TermuxSessionsListViewController.notifyDataSetChanged(TermuxSessionsListViewController.java:155)
+	at com.termux.app.terminal.TermuxSessionsListViewController.rebuildGroupedList(TermuxSessionsListViewController.java:86)
+	at com.termux.app.terminal.TermuxSessionsListViewController.notifyDataSetChanged(TermuxSessionsListViewController.java:155)
+	at com.termux.app.terminal.TermuxSessionsListViewController.rebuildGroupedList(TermuxSessionsListViewController.java:86)
+	at com.termux.app.terminal.TermuxSessionsListViewController.notifyDataSetChanged(TermuxSessionsListViewController.java:155)
+	at com.termux.app.terminal.TermuxSessionsListViewController.rebuildGroupedList(TermuxSessionsListViewController.java:86)
+	at com.termux.app.terminal.TermuxSessionsListViewController.notifyDataSetChanged(TermuxSessionsListViewController.java:155)
+	at com.termux.app.terminal.TermuxSessionsListViewController.rebuildGroupedList(TermuxSessionsListViewController.java:86)
+	at com.termux.app.terminal.TermuxSessionsListViewController.notifyDataSetChanged(TermuxSessionsListViewController.java:155)
+	at com.termux.app.terminal.TermuxSessionsListViewController.rebuildGroupedList(TermuxSessionsListViewController.java:86)
+	at com.termux.app.terminal.TermuxSessionsListViewController.notifyDataSetChanged(TermuxSessionsListViewController.java:155)
+	at com.termux.app.terminal.TermuxSessionsListViewController.rebuildGroupedList(TermuxSessionsListViewController.java:86)
+	at com.termux.app.terminal.TermuxSessionsListViewController.notifyDataSetChanged(TermuxSessionsListViewController.java:155)
+	at com.termux.app.terminal.TermuxSessionsListViewController.rebuildGroupedList(TermuxSessionsListViewController.java:86)
+	at com.termux.app.terminal.TermuxSessionsListViewController.notifyDataSetChanged(TermuxSessionsListViewController.java:155)
+	at com.termux.app.terminal.TermuxSessionsListViewController.rebuildGroupedList(TermuxSessionsListViewController.java:86)
+	at com.termux.app.terminal.TermuxSessionsListViewController.notifyDataSetChanged(TermuxSessionsListViewController.java:155)
+	at com.termux.app.terminal.TermuxSessionsListViewController.rebuildGroupedList(TermuxSessionsListViewController.java:86)
+	at com.termux.app.terminal.TermuxSessionsListViewController.notifyDataSetChanged(TermuxSessionsListViewController.java:155)
+	at com.termux.app.terminal.TermuxSessionsListViewController.rebuildGroupedList(TermuxSessionsListViewController.java:86)
+	at com.termux.app.terminal.TermuxSessionsListViewController.notifyDataSetChanged(TermuxSessionsListViewController.java:155)
+	at com.termux.app.terminal.TermuxSessionsListViewController.rebuildGroupedList(TermuxSessionsListViewController.java:86)
+	at com.termux.app.terminal.TermuxSessionsListViewController.notifyDataSetChanged(TermuxSessionsListViewController.java:155)
+	at com.termux.app.terminal.TermuxSessionsListViewController.rebuildGroupedList(TermuxSessionsListViewController.java:86)
+	at com.termux.app.terminal.TermuxSessionsListViewController.notifyDataSetChanged(TermuxSessionsListViewController.java:155)
+	at com.termux.app.terminal.TermuxSessionsListViewController.rebuildGroupedList(TermuxSessionsListViewController.java:86)
+	at com.termux.app.ter

@@ -66,7 +66,6 @@ public class TermuxSessionsListViewController extends BaseAdapter
 
     public void setSplitLayout(TermuxSplitLayout layout) {
         mSplitLayout = layout;
-        rebuildGroupedList();
         notifyDataSetChanged();
     }
 
@@ -83,7 +82,6 @@ public class TermuxSessionsListViewController extends BaseAdapter
                 item.isChild = false;
                 mItems.add(item);
             }
-            notifyDataSetChanged();
             return;
         }
 
