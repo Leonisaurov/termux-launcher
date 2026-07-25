@@ -8,16 +8,13 @@
 #   GIT_HASH=<commit-hash>
 #   STATUS=<working|broken|untested>
 
-VERSION=0.2.0
+VERSION=0.3.0
 DATE=2026-07-25
-GIT_HASH=d6354e86
-STATUS=working
+GIT_HASH=$(git rev-parse --short HEAD)
+STATUS=testing
 CHANGES="
-- Split/standalone view switching
-- Collapsible Split Window tree in drawer
-- MiniSplitView visual layout
-- Drag-and-drop from drawer to create splits
-- Grouped session list
-- Standalone session support
-- Back button returns to split from standalone
+- Re-added xsel clipboard tool with ContentProvider
+- Fixed: dynamic provider authority (\${applicationId}.clipboard)
+- Fixed: null safety and error handling in ClipboardContentProvider
+- Version tracking system (VERSION + CHANGELOG + git tags)
 "

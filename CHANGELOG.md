@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.3.0] - 2026-07-25
+### Added
+- xsel clipboard tool for Termux (ContentProvider + shell script)
+- Version tracking system (VERSION file, CHANGELOG.md, git tags)
+
+### Fixed
+- Dynamic ContentProvider authority (${applicationId}.clipboard)
+- Error handling in clipboard provider
+
 ## [0.2.0] - 2026-07-25
 ### Added
 - Split/standalone view switching (togglable views)
