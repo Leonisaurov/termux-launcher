@@ -146,8 +146,8 @@ jobs:
             --repo ${{ github.repository }} \
             --title "Nightly Split (latest)" \
             --notes "Latest APK from ${{ github.ref_name }} branch. Build #${{ github.run_number }}" \
-            --prerelease
+            # No --prerelease flag so it shows as a full release on the releases page
           
-          echo "✅ Release created: prerelease, not draft"
+          echo "✅ Release created: full release, not prerelease"
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

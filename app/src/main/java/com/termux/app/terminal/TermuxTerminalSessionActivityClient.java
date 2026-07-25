@@ -183,40 +183,12 @@ public class TermuxTerminalSessionActivityClient extends TermuxTerminalSessionCl
     }
 
     @Override
-    public void onSessionFinished(@NonNull TerminalSession finishedSession) {
-        TermuxService service = mActivity.getTermuxService();
-        if (service == null || service.wantsToStop()) {
-            // The service wants to stop as soon as possible.
-            mActivity.finishActivityIfNotFinishing();
-            return;
-        }
-        int index = service.getIndexOfSession(finishedSession);
-        // For plugin commands that expect the result back, we should immediately close the session
-        // and send the result back instead of waiting fo the user to press enter.
-        // The plugin can handle/show errors itself.
-        boolean isPluginExecutionCommandWithPendingResult = false;
-        TermuxSession termuxSession = service.getTermuxSession(index);
-        if (termuxSession != null) {
-            isPluginExecutionCommandWithPendingResult = termuxSession.getExecutionCommand().isPluginExecutionCommandWithPendingResult();
-            if (isPluginExecutionCommandWithPendingResult)
-                Logger.logVerbose(LOG_TAG, "The \"" + finishedSession.mSessionName + "\" session will be force finished automatically since result in pending.");
-        }
-        if (mActivity.isVisible() && finishedSession != mActivity.getCurrentSession()) {
-            // Show toast for non-current sessions that exit.
-            // Verify that session was not removed before we got told about it finishing:
-            if (index >= 0)
-                mActivity.showToast(toToastTitle(finishedSession) + " - exited", true);
-        }
-        if (mActivity.getPackageManager().hasSystemFeature(PackageManager.FEATURE_LEANBACK)) {
-            // On Android TV devices we need to use older behaviour because we may
-            // not be able to have multiple launcher icons.
-            if (service.getTermuxSessionsSize() > 1 || isPluginExecutionCommandWithPendingResult) {
-                removeFinishedSession(finishedSession);
-            }
-        } else {
-            // Once we have a separate launcher icon for the failsafe session, it
-            // should be safe to auto-close session on exit code '0' or '130'.
-            if (finishedSession.getExitStatus() == 0 || finishedSession.getExitStatus() == 130 || isPluginExecutionCommandWithPendingResult) {
+    public void onSessionFinished(TerminalSession finishedSession) {
+        if (mActivity.isVisible() && !mActivity.isFinishing()) {
+            // In split mode, let the activity handle pane closing
+            if (mActivity.getSplitLayout() != null && mActivity.getSplitLayout().getPaneCount() > 1) {
+                mActivity.closePaneForSession(finishedSession);
+            } else {
                 removeFinishedSession(finishedSession);
             }
         }
@@ -328,14 +300,26 @@ public class TermuxTerminalSessionActivityClient extends TermuxTerminalSessionCl
      * Try switching to session.
      */
     public void setCurrentSession(TerminalSession session) {
-        if (session == null)
-            return;
+        if (session == null) return;
+        
+        // In split mode, find which pane has this session and focus it
+        if (mActivity.getSplitLayout() != null && mActivity.getSplitLayout().getPaneCount() > 1) {
+            for (int i = 0; i < mActivity.getSplitLayout().getChildCount(); i++) {
+                View child = mActivity.getSplitLayout().getChildAt(i);
+                if (child instanceof TerminalView) {
+                    TerminalView tv = (TerminalView) child;
+                    if (tv.getCurrentSession() == session) {
+                        mActivity.getSplitLayout().setFocusedPaneIndex(i);
+                        mActivity.getDrawer().closeDrawers();
+                        return;
+                    }
+                }
+            }
+        }
+        
         if (mActivity.getTerminalView().attachSession(session)) {
-            // notify about switched session if not already displaying the session
             notifyOfSessionChange();
         }
-        // We call the following even when the session is already being displayed since config may
-        // be stale, like current session not selected or scrolled to.
         checkAndScrollToSession(session);
         updateBackgroundColor();
     }
@@ -401,10 +385,19 @@ public class TermuxTerminalSessionActivityClient extends TermuxTerminalSessionCl
 
     public void addNewSession(boolean isFailSafe, String sessionName) {
         TermuxService service = mActivity.getTermuxService();
-        if (service == null)
+        if (service == null) return;
+        
+        // In split mode, create a new pane instead of replacing current session
+        if (mActivity.getSplitLayout() != null && mActivity.getSplitLayout().getPaneCount() >= 1) {
+            mActivity.splitVertical();
             return;
+        }
+        
         if (service.getTermuxSessionsSize() >= MAX_SESSIONS) {
-            new AlertDialog.Builder(mActivity).setTitle(R.string.title_max_terminals_reached).setMessage(R.string.msg_max_terminals_reached).setPositiveButton(android.R.string.ok, null).show();
+            new AlertDialog.Builder(mActivity)
+                .setTitle(R.string.title_max_terminals_reached)
+                .setMessage(R.string.msg_max_terminals_reached)
+                .setPositiveButton(android.R.string.ok, null).show();
         } else {
             TerminalSession currentSession = mActivity.getCurrentSession();
             String workingDirectory;
@@ -413,9 +406,9 @@ public class TermuxTerminalSessionActivityClient extends TermuxTerminalSessionCl
             } else {
                 workingDirectory = currentSession.getCwd();
             }
-            TermuxSession newTermuxSession = service.createTermuxSession(null, null, null, workingDirectory, isFailSafe, sessionName);
-            if (newTermuxSession == null)
-                return;
+            TermuxSession newTermuxSession = service.createTermuxSession(
+                null, null, null, workingDirectory, isFailSafe, sessionName);
+            if (newTermuxSession == null) return;
             TerminalSession newTerminalSession = newTermuxSession.getTerminalSession();
             setCurrentSession(newTerminalSession);
             mActivity.getDrawer().closeDrawers();

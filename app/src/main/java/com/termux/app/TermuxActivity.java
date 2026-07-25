@@ -7310,6 +7310,10 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
         return mTerminalView;
     }
 
+    public TermuxSplitLayout getSplitLayout() {
+        return mSplitLayout;
+    }
+
     public TermuxTerminalViewClient getTermuxTerminalViewClient() {
         return mTermuxTerminalViewClient;
     }
