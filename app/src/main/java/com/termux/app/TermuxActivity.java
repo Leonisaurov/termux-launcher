@@ -7430,11 +7430,11 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
         builder.setTitle("⬇ Updating APK");
         builder.setView(layout);
         builder.setCancelable(true);
-        builder.setCanceledOnTouchOutside(false);
         
         final Thread[] downloadThread = new Thread[1];
         
         androidx.appcompat.app.AlertDialog dialog = builder.create();
+        dialog.setCanceledOnTouchOutside(false);
         dialog.show();
         
         dialog.setOnCancelListener(d -> {
