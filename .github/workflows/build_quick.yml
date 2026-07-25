@@ -76,7 +76,7 @@ jobs:
             -x testDebugUnitTest \
             -x lintDebug \
             -x lintVitalDebug \
-            2>&1 || {
+            -x kaptGenerateStubsDebugKotlin 2>&1 || {
             echo "::error::Build failed"
             exit 1
           }
@@ -84,31 +84,30 @@ jobs:
           echo "Validating APK"
           APK_FILE="${APK_BASENAME_PREFIX}_arm64-v8a.apk"
           if [ ! -f "$APK_DIR_PATH/$APK_FILE" ]; then
-            echo "::warning::arm64-v8a APK not found, checking other ABIs"
+            echo "::warning::arm64-v8a APK not found"
             ls -la "$APK_DIR_PATH/" 2>/dev/null || echo "No APKs found"
-            found_apk=$(ls "$APK_DIR_PATH/"*.apk 2>/dev/null | head -1)
-            if [ -n "$found_apk" ]; then
-              echo "Found APK: $found_apk"
-              cp "$found_apk" "$APK_DIR_PATH/$APK_FILE"
-            else
-              exit 1
-            fi
+            exit 1
           fi
           echo "✅ APK size: $(ls -lh "$APK_DIR_PATH/$APK_FILE" | awk '{print $5}')"
 
-      - name: Attach arm64-v8a APK
-        uses: actions/upload-artifact@v6
-        with:
-          name: termux-app-debug
-          path: |
-            ${{ env.APK_DIR_PATH }}/${{ env.APK_BASENAME_PREFIX }}_arm64-v8a.apk
-            ${{ env.APK_DIR_PATH }}/output-metadata.json
-          retention-days: 7
-          if-no-files-found: error
-
-      - name: Cleanup Gradle cache to avoid quota issues
-        if: always()
+      - name: Rename and prepare APK
         shell: bash
         run: |
-          rm -rf ~/.gradle/caches/build-cache-* 2>/dev/null || true
-          find ~/.gradle/caches/ -name "*.lock" -delete 2>/dev/null || true
+          APK_SRC="${{ env.APK_DIR_PATH }}/${{ env.APK_BASENAME_PREFIX }}_arm64-v8a.apk"
+          APK_DST="${{ env.APK_DIR_PATH }}/termux-app-split.apk"
+          if [ -f "$APK_SRC" ]; then
+            cp "$APK_SRC" "$APK_DST"
+            echo "APK prepared: $(ls -lh "$APK_DST" | awk '{print $5}')"
+          else
+            echo "::error::APK not found at $APK_SRC"
+            ls -la "${{ env.APK_DIR_PATH }}/" 2>/dev/null || true
+            exit 1
+          fi
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v6
+        with:
+          name: termux-app-split.apk
+          path: ${{ env.APK_DIR_PATH }}/termux-app-split.apk
+          retention-days: 7
+          if-no-files-found: error
