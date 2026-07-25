@@ -188,9 +188,14 @@ public class TermuxTerminalSessionActivityClient extends TermuxTerminalSessionCl
     @Override
     public void onSessionFinished(TerminalSession finishedSession) {
         if (mActivity.isVisible() && !mActivity.isFinishing()) {
-            // In split mode, let the activity handle pane closing
             if (mActivity.getSplitLayout() != null && mActivity.getSplitLayout().getPaneCount() > 1) {
-                mActivity.closePaneForSession(finishedSession);
+                if (mActivity.getStandaloneView() != null
+                    && finishedSession == mActivity.getStandaloneView().getCurrentSession()) {
+                    removeFinishedSession(finishedSession);
+                    mActivity.showSplitLayout();
+                } else {
+                    mActivity.closePaneForSession(finishedSession);
+                }
             } else {
                 removeFinishedSession(finishedSession);
             }
