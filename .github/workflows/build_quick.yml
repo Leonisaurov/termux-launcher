@@ -104,10 +104,26 @@ jobs:
             exit 1
           fi
 
-      - name: Upload APK
+      - name: Upload APK as Artifact
         uses: actions/upload-artifact@v6
         with:
           name: termux-app-split.apk
           path: ${{ env.APK_DIR_PATH }}/termux-app-split.apk
           retention-days: 7
           if-no-files-found: error
+
+      - name: Upload APK to GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: nightly-split-${{ github.sha }}
+          name: "Nightly Split ${{ github.sha }}"
+          body: |
+            APK del último build de la rama ${{ github.ref_name }}.
+            Build #${{ github.run_number }} - ${{ github.sha }}
+          files: ${{ env.APK_DIR_PATH }}/termux-app-split.apk
+          draft: false
+          prerelease: true
+          fail_on_unmatched_files: false
+          generate_release_notes: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
