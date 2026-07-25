@@ -110,7 +110,7 @@ public class TermuxSessionsListViewController extends BaseAdapter
 
         splitSessions.sort(Comparator.comparingInt(s -> sessionToPaneOrder.getOrDefault(s, 0)));
 
-        if (!splitSessions.isEmpty()) {
+        if (splitSessions.size() > 1) {
             ListItem group = new ListItem();
             group.type = TYPE_SPLIT_GROUP;
             group.title = "Split Window [" + splitSessions.size() + "]";
@@ -127,6 +127,15 @@ public class TermuxSessionsListViewController extends BaseAdapter
                 item.isChild = true;
                 mItems.add(item);
             }
+        } else if (splitSessions.size() == 1) {
+            TermuxSession s = splitSessions.get(0);
+            ListItem item = new ListItem();
+            item.type = TYPE_SESSION;
+            item.session = s;
+            item.isStandalone = true;
+            item.paneOrder = -1;
+            item.isChild = false;
+            mItems.add(item);
         }
 
         for (TermuxSession s : standaloneSessions) {
