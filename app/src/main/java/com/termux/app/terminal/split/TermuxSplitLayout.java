@@ -712,7 +712,7 @@ public class TermuxSplitLayout extends ViewGroup implements View.OnDragListener 
     }
 
     @Override
-    public boolean onDragEvent(DragEvent event) {
+    public boolean onDrag(View v, DragEvent event) {
         switch (event.getAction()) {
             case DragEvent.ACTION_DRAG_STARTED:
                 return event.getClipDescription() != null
@@ -738,12 +738,12 @@ public class TermuxSplitLayout extends ViewGroup implements View.OnDragListener 
         float dropX = event.getX();
         float dropY = event.getY();
 
-        Orientation orientation = determineDropOrientation(dropX, dropY);
+        BranchNode.Orientation orientation = determineDropOrientation(dropX, dropY);
         splitFocusedPane(orientation);
         return true;
     }
 
-    private Orientation determineDropOrientation(float dropX, float dropY) {
+    private BranchNode.Orientation determineDropOrientation(float dropX, float dropY) {
         int width = getWidth();
         int height = getHeight();
         float centerX = width / 2f;
@@ -754,13 +754,13 @@ public class TermuxSplitLayout extends ViewGroup implements View.OnDragListener 
         float margin = 0.2f * Math.min(width, height) / 2f;
 
         if (Math.abs(dx) < margin && Math.abs(dy) < margin) {
-            return Orientation.VERTICAL;
+            return BranchNode.Orientation.VERTICAL;
         }
 
         if (Math.abs(dx) >= Math.abs(dy)) {
-            return Orientation.VERTICAL;
+            return BranchNode.Orientation.VERTICAL;
         } else {
-            return Orientation.HORIZONTAL;
+            return BranchNode.Orientation.HORIZONTAL;
         }
     }
 }
