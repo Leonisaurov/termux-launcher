@@ -342,7 +342,7 @@
 
         <!-- Clipboard provider for xsel -->
         <provider
-            android:name=".clipboard.ClipboardContentProvider"
+            android:name="com.termux.app.clipboard.ClipboardContentProvider"
             android:authorities="${applicationId}.clipboard"
             android:exported="true"
             android:enabled="true" />
