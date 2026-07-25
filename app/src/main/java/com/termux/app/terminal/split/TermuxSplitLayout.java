@@ -128,13 +128,21 @@ public class TermuxSplitLayout extends ViewGroup {
         addView(newTerminalView, mFocusedPaneIndex + 1,
             new LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT));
 
+        mFocusedPaneIndex = mFocusedPaneIndex + 1;
+
+        // CRITICAL: Install the focus listener BEFORE requesting focus, and call
+        // notifyPaneFocused() so that onPaneFocused() updates mTerminalView.
+        // Previously, requestFocus() was called in a post() before setupPaneFocusTracking(),
+        // meaning the focus event was lost and mTerminalView was never updated.
+        setupPaneFocusTracking(newTerminalView);
         newTerminalView.post(() -> {
             newTerminalView.updateSize();
             newTerminalView.requestFocus();
-            setupPaneFocusTracking(newTerminalView);
             newTerminalView.invalidate();
         });
-        mFocusedPaneIndex = mFocusedPaneIndex + 1;
+
+        // Notify so mTerminalView and keyboard follow the new pane
+        notifyPaneFocused();
 
         if (mCallback != null) {
             mCallback.onPaneCountChanged(getPaneCount());
@@ -162,6 +170,8 @@ public class TermuxSplitLayout extends ViewGroup {
             if (mCallback != null) {
                 mCallback.onPaneCountChanged(getPaneCount());
             }
+            // Focus the remaining pane
+            notifyPaneFocused();
             requestLayout();
             invalidate();
             return true;
@@ -188,6 +198,12 @@ public class TermuxSplitLayout extends ViewGroup {
         if (mCallback != null) {
             mCallback.onPaneCountChanged(getPaneCount());
         }
+
+        // CRITICAL: Focus the remaining pane and notify listeners so mTerminalView
+        // is updated and the keyboard follows focus. Without this, the remaining
+        // pane has no Android focus and the IME cannot connect to it.
+        notifyPaneFocused();
+
         requestLayout();
         invalidate();
         return true;

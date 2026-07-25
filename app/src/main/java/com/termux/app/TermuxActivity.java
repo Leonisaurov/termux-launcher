@@ -5420,6 +5420,14 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
                 mTerminalView = view;
                 // Notify session list UI
                 termuxSessionListNotifyUpdated();
+                // Ensure the newly focused pane has Android focus and keyboard follows
+                if (view != null) {
+                    view.requestFocus();
+                    // Show soft keyboard for the newly focused pane (non-blocking)
+                    if (mTermuxTerminalViewClient != null) {
+                        mTermuxTerminalViewClient.showKeyboardForFocusedPane();
+                    }
+                }
             }
 
             @Override

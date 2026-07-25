@@ -214,9 +214,17 @@ public class TermuxTerminalViewClient extends TermuxTerminalViewClientBase {
 
     @Override
     public void onSingleTapUp(MotionEvent e) {
-        TerminalEmulator term = mActivity.getCurrentSession().getEmulator();
+        // Use the focused TerminalView from the split layout to avoid stale mTerminalView references.
+        // mTerminalView may lag behind the actual focused pane if onPaneFocused() hasn't fired yet.
+        TerminalView focusedView = mActivity.getTerminalView();
+        if (focusedView == null) return;
+
+        TerminalEmulator term = focusedView.getCurrentSession() != null
+            ? focusedView.getCurrentSession().getEmulator() : null;
+        if (term == null) return;
+
         if (mActivity.getProperties().shouldOpenTerminalTranscriptURLOnClick()) {
-            int[] columnAndRow = mActivity.getTerminalView().getColumnAndRow(e, true);
+            int[] columnAndRow = focusedView.getColumnAndRow(e, true);
             String wordAtTap = term.getScreen().getWordAtLocation(columnAndRow[0], columnAndRow[1]);
             LinkedHashSet<CharSequence> urlSet = TermuxUrlUtils.extractUrls(wordAtTap);
             if (!urlSet.isEmpty()) {
@@ -232,7 +240,7 @@ public class TermuxTerminalViewClient extends TermuxTerminalViewClientBase {
                 return;
             }
             if (!KeyboardUtils.areDisableSoftKeyboardFlagsSet(mActivity))
-                showSystemSoftKeyboard(mActivity.getTerminalView());
+                showSystemSoftKeyboard(focusedView);
             else
                 Logger.logVerbose(LOG_TAG, "Not showing soft keyboard onSingleTapUp since its disabled");
         }
@@ -683,7 +691,13 @@ public class TermuxTerminalViewClient extends TermuxTerminalViewClientBase {
                 mShowSoftKeyboardIgnoreOnce = true;
             }
         }
-        mActivity.getTerminalView().setOnFocusChangeListener(mTerminalFocusChangeListener);
+        // NOTE: We intentionally do NOT call setOnFocusChangeListener() here.
+        // That would REPLACE the setupPaneFocusTracking() listener installed by
+        // TermuxSplitLayout on each TerminalView, breaking focus tracking for
+        // mFocusedPaneIndex and onPaneFocused(). Keyboard show/hide on focus
+        // change is now handled by onPaneFocused() in TermuxActivity.
+        // See: setupPaneFocusTracking() in TermuxSplitLayout.java
+
         // Do not force show soft keyboard if termux-reload-settings command was run with hardware keyboard
         // or soft keyboard is to be hidden or is disabled
         if (!isReloadTermuxProperties && !noShowKeyboard) {
@@ -753,6 +767,26 @@ public class TermuxTerminalViewClient extends TermuxTerminalViewClientBase {
     private void showSystemSoftKeyboard(@NonNull View target) {
         mActivity.onSystemImeRequested();
         KeyboardUtils.showSoftKeyboard(mActivity, target);
+    }
+
+    /**
+     * Called from onPaneFocused() when a TerminalView pane gains focus in split mode.
+     * Shows the soft keyboard for the newly focused pane without destroying focus
+     * tracking listeners. Respects mShowSoftKeyboardIgnoreOnce for startup scenarios.
+     */
+    public void showKeyboardForFocusedPane() {
+        if (isInAppKeyboardEnabled()) {
+            suppressSystemImeForInAppKeyboard();
+            return;
+        }
+        if (mShowSoftKeyboardIgnoreOnce) {
+            mShowSoftKeyboardIgnoreOnce = false;
+            return;
+        }
+        TerminalView focusedView = mActivity.getTerminalView();
+        if (focusedView == null) return;
+        Logger.logVerbose(LOG_TAG, "Showing soft keyboard for focused pane");
+        showSystemSoftKeyboard(focusedView);
     }
 
     private boolean isInAppKeyboardEnabled() {
