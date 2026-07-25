@@ -140,14 +140,14 @@ jobs:
             --repo ${{ github.repository }} \
             --title "v${APP_VERSION} Build #${BUILD_NUMBER} (${SHORT_SHA})" \
             --notes "Build from branch \`${{ github.ref_name }}\` at commit \`${SHORT_SHA}\`.
-
-## Cambios
-- Ve el changelog en [CHANGELOG.md](https://github.com/${{ github.repository }}/blob/${GITHUB_SHA}/CHANGELOG.md)
-- Versión: v${APP_VERSION} (build ${BUILD_NUMBER})
-
-## Tags disponibles
-- \`${RELEASE_TAG}\` — esta build específica
-- \`nightly-split-latest\` — última build (actualizada automáticamente)" \
+            
+            ## Cambios
+            - Ve el changelog en [CHANGELOG.md](https://github.com/${{ github.repository }}/blob/${GITHUB_SHA}/CHANGELOG.md)
+            - Versión: v${APP_VERSION} (build ${BUILD_NUMBER})
+            
+            ## Tags disponibles
+            - \`${RELEASE_TAG}\` — esta build específica
+            - \`nightly-split-latest\` — última build (actualizada automáticamente)" \
             --prerelease
 
           echo "✅ Release created: ${RELEASE_TAG}"
