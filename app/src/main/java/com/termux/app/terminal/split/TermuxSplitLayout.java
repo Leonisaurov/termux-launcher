@@ -132,7 +132,11 @@ public class TermuxSplitLayout extends ViewGroup {
         addView(newTerminalView, mFocusedPaneIndex + 1,
             new LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT));
 
-        newTerminalView.requestFocus();
+        newTerminalView.post(() -> {
+            newTerminalView.updateSize();
+            newTerminalView.requestFocus();
+            newTerminalView.invalidate();
+        });
         mFocusedPaneIndex = mFocusedPaneIndex + 1;
 
         if (mCallback != null) {
@@ -579,7 +583,10 @@ public class TermuxSplitLayout extends ViewGroup {
             TerminalView focusedView = getFocusedTerminalView();
             mCallback.onPaneFocused(focusedView, mFocusedPaneIndex);
             if (focusedView != null) {
-                focusedView.requestFocus();
+                focusedView.post(() -> {
+                    focusedView.requestFocus();
+                    focusedView.invalidate();
+                });
             }
         }
     }

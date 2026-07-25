@@ -7335,46 +7335,129 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
     }
 
     private void downloadAndInstallUpdate() {
-        Toast.makeText(this, "Downloading latest APK...", Toast.LENGTH_SHORT).show();
+        Toast.makeText(this, "⬇ Downloading latest APK...", Toast.LENGTH_LONG).show();
+        
         new Thread(() -> {
             try {
-                String scriptPath = getFilesDir().getParent() + "/files/home/Develop/Patch/termux-app/scripts/update-termux.sh";
+                // Step 1: Find latest successful workflow run
                 ProcessBuilder pb = new ProcessBuilder(
-                    "/data/data/com.termux/files/usr/bin/bash", scriptPath);
+                    "/data/data/com.termux/files/usr/bin/gh",
+                    "run", "list",
+                    "--repo", "Leonisaurov/termux-launcher",
+                    "--workflow", "Build quick (arm64-only)",
+                    "--status", "success",
+                    "--json", "databaseId",
+                    "--jq", ".[0].databaseId"
+                );
                 pb.redirectErrorStream(true);
                 Process process = pb.start();
+                
                 java.io.BufferedReader reader = new java.io.BufferedReader(
                     new java.io.InputStreamReader(process.getInputStream()));
-                StringBuilder output = new StringBuilder();
-                String line;
-                while ((line = reader.readLine()) != null) {
-                    output.append(line).append("\n");
-                }
+                String runId = reader.readLine();
                 int exitCode = process.waitFor();
-                String result = output.toString();
-                runOnUiThread(() -> {
-                    if (exitCode == 0) {
-                        Toast.makeText(TermuxActivity.this,
-                            "✅ APK downloaded! Check installer screen.",
-                            Toast.LENGTH_LONG).show();
-                    } else {
-                        new AlertDialog.Builder(TermuxActivity.this)
-                            .setTitle("Update Failed")
-                            .setMessage(result)
-                            .setPositiveButton("OK", null)
-                            .show();
+                
+                if (exitCode != 0 || runId == null || runId.isEmpty()) {
+                    showUpdateError("No se encontró ninguna build exitosa reciente.\nAsegúrate de que gh esté autenticado.");
+                    return;
+                }
+                
+                runId = runId.trim();
+                String tmpDir = "/data/data/com.termux/files/usr/tmp/termux-apk-" + runId;
+                
+                // Step 2: Download the artifact
+                runOnUiThread(() -> Toast.makeText(TermuxActivity.this, 
+                    "📦 Descargando APK (run #" + runId + ")...", Toast.LENGTH_SHORT).show());
+                
+                ProcessBuilder pb2 = new ProcessBuilder(
+                    "/data/data/com.termux/files/usr/bin/gh",
+                    "run", "download", "--repo", "Leonisaurov/termux-launcher",
+                    runId, "--name", "termux-app-split.apk",
+                    "--dir", tmpDir
+                );
+                pb2.redirectErrorStream(true);
+                Process proc2 = pb2.start();
+                
+                StringBuilder output2 = new StringBuilder();
+                java.io.BufferedReader reader2 = new java.io.BufferedReader(
+                    new java.io.InputStreamReader(proc2.getInputStream()));
+                String line2;
+                while ((line2 = reader2.readLine()) != null) {
+                    output2.append(line2).append("\n");
+                }
+                int exit2 = proc2.waitFor();
+                
+                if (exit2 != 0) {
+                    showUpdateError("Error descargando artifact:\n" + output2.toString());
+                    return;
+                }
+                
+                // Step 3: Find and extract APK
+                java.io.File tmpDirFile = new java.io.File(tmpDir);
+                java.io.File[] files = tmpDirFile.listFiles((dir, name) -> name.endsWith(".apk") || name.endsWith(".zip"));
+                java.io.File apkFile = null;
+                
+                if (files != null) {
+                    for (java.io.File f : files) {
+                        if (f.getName().endsWith(".apk")) {
+                            apkFile = f;
+                            break;
+                        }
                     }
-                });
+                    // If only zip found, extract it
+                    if (apkFile == null) {
+                        for (java.io.File f : files) {
+                            if (f.getName().endsWith(".zip")) {
+                                ProcessBuilder pb3 = new ProcessBuilder(
+                                    "/data/data/com.termux/files/usr/bin/unzip",
+                                    "-o", f.getAbsolutePath(), "-d", tmpDir
+                                );
+                                pb3.redirectErrorStream(true).start().waitFor();
+                                // Remove zip
+                                f.delete();
+                                // Search again for APK
+                                java.io.File[] apks = tmpDirFile.listFiles((d, n) -> n.endsWith(".apk"));
+                                if (apks != null && apks.length > 0) {
+                                    apkFile = apks[0];
+                                }
+                                break;
+                            }
+                        }
+                    }
+                }
+                
+                if (apkFile == null || !apkFile.exists()) {
+                    showUpdateError("No se encontró el archivo APK en el artifact.");
+                    return;
+                }
+                
+                String apkPath = apkFile.getAbsolutePath();
+                long apkSize = apkFile.length() / (1024 * 1024);
+                
+                // Step 4: Open with Android package installer
+                runOnUiThread(() -> Toast.makeText(TermuxActivity.this,
+                    "✅ APK descargado (" + apkSize + "MB). Abriendo instalador...",
+                    Toast.LENGTH_LONG).show());
+                
+                ProcessBuilder pb4 = new ProcessBuilder(
+                    "/data/data/com.termux/files/usr/bin/termux-open", apkPath
+                );
+                pb4.redirectErrorStream(true).start();
+                
             } catch (Exception e) {
-                runOnUiThread(() -> {
-                    new AlertDialog.Builder(TermuxActivity.this)
-                        .setTitle("Update Error")
-                        .setMessage("Error: " + e.getMessage())
-                        .setPositiveButton("OK", null)
-                        .show();
-                });
+                showUpdateError("Error: " + e.getMessage());
             }
         }).start();
+    }
+
+    private void showUpdateError(String message) {
+        runOnUiThread(() -> {
+            new AlertDialog.Builder(TermuxActivity.this)
+                .setTitle("⬇ Update Failed")
+                .setMessage(message)
+                .setPositiveButton("OK", null)
+                .show();
+        });
     }
 
     /**
