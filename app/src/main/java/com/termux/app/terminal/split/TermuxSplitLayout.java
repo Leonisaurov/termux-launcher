@@ -30,7 +30,6 @@ public class TermuxSplitLayout extends ViewGroup {
     private static final int FOCUS_BORDER_SIZE_DP = 2;
     private static final int FOCUS_BORDER_COLOR = 0xFF4CAF50;
     private static final int DIVIDER_COLOR = 0xFF37474F;
-    private static final int BACKGROUND_COLOR = 0xFF000000;
 
     private static final int DIVIDER_TOUCH_SLOP_DP = 20;
 
@@ -40,7 +39,6 @@ public class TermuxSplitLayout extends ViewGroup {
 
     private final Paint mDividerPaint;
     private final Paint mFocusBorderPaint;
-    private final Paint mBackgroundPaint;
 
     private SplitNode mRootNode;
     private int mFocusedPaneIndex;
@@ -68,7 +66,6 @@ public class TermuxSplitLayout extends ViewGroup {
         setWillNotDraw(false);
         setFocusable(false);
         setFocusableInTouchMode(false);
-        setBackgroundColor(BACKGROUND_COLOR);
 
         float density = Resources.getSystem().getDisplayMetrics().density;
         mDividerSizePx = (int) (DEFAULT_DIVIDER_SIZE_DP * density);
@@ -83,10 +80,6 @@ public class TermuxSplitLayout extends ViewGroup {
         mFocusBorderPaint.setColor(FOCUS_BORDER_COLOR);
         mFocusBorderPaint.setStyle(Paint.Style.STROKE);
         mFocusBorderPaint.setStrokeWidth(mFocusBorderSizePx);
-
-        mBackgroundPaint = new Paint();
-        mBackgroundPaint.setColor(BACKGROUND_COLOR);
-        mBackgroundPaint.setStyle(Paint.Style.FILL);
     }
 
     public void setSplitLayoutCallback(SplitLayoutCallback callback) {
@@ -293,6 +286,24 @@ public class TermuxSplitLayout extends ViewGroup {
     }
 
     @Override
+    protected void onMeasure(int widthMeasureSpec, int heightMeasureSpec) {
+        int width = MeasureSpec.getSize(widthMeasureSpec);
+        int height = MeasureSpec.getSize(heightMeasureSpec);
+
+        for (int i = 0; i < getChildCount(); i++) {
+            View child = getChildAt(i);
+            if (child.getVisibility() != GONE) {
+                child.measure(
+                    MeasureSpec.makeMeasureSpec(width, MeasureSpec.EXACTLY),
+                    MeasureSpec.makeMeasureSpec(height, MeasureSpec.EXACTLY)
+                );
+            }
+        }
+
+        setMeasuredDimension(width, height);
+    }
+
+    @Override
     protected void onLayout(boolean changed, int left, int top, int right, int bottom) {
         if (mRootNode == null || getChildCount() == 0) return;
 
@@ -327,8 +338,6 @@ public class TermuxSplitLayout extends ViewGroup {
     @Override
     protected void onDraw(Canvas canvas) {
         super.onDraw(canvas);
-
-        canvas.drawRect(0, 0, getWidth(), getHeight(), mBackgroundPaint);
 
         for (Rect dividerRect : mDividerRects) {
             canvas.drawRect(dividerRect, mDividerPaint);

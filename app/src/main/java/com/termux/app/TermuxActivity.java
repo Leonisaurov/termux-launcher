@@ -7477,7 +7477,7 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
                                 sizeText.setText(readMb + " MB received");
                             });
                         } else {
-                            final int pct = Math.min(100, totalRead * 100 / Math.max(1, totalSize));
+                            final int pct = (int) Math.min(100, (long) totalRead * 100 / Math.max(1L, (long) totalSize));
                             final int readMb = totalRead / (1024 * 1024);
                             final int totalMb = totalSize / (1024 * 1024);
                             runOnUiThread(() -> {
