@@ -9,6 +9,7 @@ import androidx.preference.PreferenceDataStore;
 import androidx.preference.PreferenceManager;
 import com.termux.R;
 import com.termux.app.fragments.settings.SettingsLayoutUtils;
+import com.termux.shared.termux.TermuxConstants;
 import com.termux.shared.termux.settings.preferences.TermuxAppSharedPreferences;
 import java.io.File;
 import java.io.FileOutputStream;
@@ -38,17 +39,9 @@ public class TermuxPreferencesFragment extends MaterialPreferenceFragment {
 
     private void installXselScript() {
         try {
-            String homeDir = System.getenv("HOME");
-            if (homeDir == null || homeDir.isEmpty()) {
-                java.io.File filesDir = requireContext().getFilesDir();
-                if (filesDir != null && filesDir.getParentFile() != null) {
-                    homeDir = new java.io.File(filesDir.getParentFile(), "home").getAbsolutePath();
-                }
-            }
-            if (homeDir == null || homeDir.isEmpty()) {
-                Toast.makeText(requireContext(), "Cannot determine home directory", Toast.LENGTH_SHORT).show();
-                return;
-            }
+            // Use TermuxConstants for the most reliable home directory path
+            String homeDir = TermuxConstants.TERMUX_HOME_DIR_PATH;
+
             File localBin = new File(homeDir, ".local/bin");
             if (!localBin.exists()) {
                 localBin.mkdirs();
