@@ -117,30 +117,26 @@ jobs:
       - name: Upload APK to GitHub Release
         shell: bash
         run: |
-          # Create/update a moving tag "nightly-split-latest"
-          git config user.email "actions@github.com"
-          git config user.name "GitHub Actions"
-          
-          # Delete old tag locally and remotely (ignore errors if not exists)
+          echo "🗑️ Deleting old release and tag..."
+          # Delete existing release (ignore errors if it doesn't exist)
+          gh release delete nightly-split-latest --yes 2>/dev/null || echo "No old release to delete"
+          # Delete existing tag locally and remotely
           git tag -d nightly-split-latest 2>/dev/null || true
           git push origin :refs/tags/nightly-split-latest 2>/dev/null || true
           
+          echo "🏷️ Creating new tag and release..."
           # Create new tag
           git tag nightly-split-latest "${{ github.sha }}"
           git push origin nightly-split-latest
           
-          # Create/update release using gh CLI (pre-installed in Actions)
+          # Create release (this also creates the tag if missing)
           gh release create nightly-split-latest \
             "${{ env.APK_DIR_PATH }}/termux-app-split.apk#termux-app-split.apk" \
             --repo ${{ github.repository }} \
             --title "Nightly Split (latest)" \
-            --notes "Latest APK from ${{ github.ref_name }} branch. Build #${{ github.run_number }} - ${{ github.sha }}" \
-            --prerelease \
-            --latest=false \
-            || gh release upload nightly-split-latest \
-              "${{ env.APK_DIR_PATH }}/termux-app-split.apk#termux-app-split.apk" \
-              --repo ${{ github.repository }} \
-              --clobber \
-            || true
+            --notes "Latest APK from ${{ github.ref_name }} branch. Build #${{ github.run_number }}" \
+            --prerelease
+          
+          echo "✅ Release created: prerelease, not draft"
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
