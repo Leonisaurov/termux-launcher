@@ -5460,9 +5460,10 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
 
             @Override
             public void onPaneCountChanged(int newCount) {
-                // Update MiniSplitView and grouped list when layout changes
+                // Update MiniSplitView visibility and layout when pane count changes
                 MiniSplitView miniSplitView = findViewById(R.id.mini_split_view);
                 if (miniSplitView != null) {
+                    miniSplitView.setVisibility(newCount > 1 ? View.VISIBLE : View.GONE);
                     miniSplitView.updateFromLayout();
                 }
                 if (mTermuxSessionListViewController != null) {
@@ -5489,7 +5490,8 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
         MiniSplitView miniSplitView = findViewById(R.id.mini_split_view);
         if (miniSplitView != null) {
             miniSplitView.setSplitLayout(mSplitLayout);
-            miniSplitView.setVisibility(View.VISIBLE);
+            int paneCount = mSplitLayout != null ? mSplitLayout.getChildCount() : 0;
+            miniSplitView.setVisibility(paneCount > 1 ? View.VISIBLE : View.GONE);
         }
 
         if (mTermuxTerminalViewClient != null)

@@ -10,9 +10,12 @@ import android.text.style.StyleSpan;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.AbsListView;
 import android.widget.AdapterView;
 import android.widget.BaseAdapter;
 import android.widget.TextView;
+
+import com.termux.app.terminal.split.MiniSplitView;
 
 import androidx.annotation.NonNull;
 import androidx.core.content.ContextCompat;
@@ -45,6 +48,7 @@ public class TermuxSessionsListViewController extends BaseAdapter
     static final int TYPE_HEADER = 0;
     static final int TYPE_SESSION = 1;
     static final int TYPE_SPLIT_GROUP = 2;
+    static final int TYPE_SPLIT_MINI_VIEW = 3;
 
     final StyleSpan boldSpan = new StyleSpan(Typeface.BOLD);
     final StyleSpan italicSpan = new StyleSpan(Typeface.ITALIC);
@@ -118,14 +122,12 @@ public class TermuxSessionsListViewController extends BaseAdapter
             String focusedDisplayName;
             TerminalSession focusedSession = mSplitLayout.getFocusedSession();
             if (focusedSession != null) {
-                int sessionIndex = mSessions.indexOf(focusedSession);
-                if (sessionIndex >= 0) {
-                    focusedDisplayName = "[" + (sessionIndex + 1) + "] " + focusedSession.mSessionName;
-                } else {
-                    focusedDisplayName = focusedSession.mSessionName;
-                }
+                TermuxSession focusedTermuxSession = findTermuxSession(focusedSession);
+                focusedDisplayName = getDisplayNameForSession(focusedTermuxSession);
+            } else if (!splitSessions.isEmpty()) {
+                focusedDisplayName = getDisplayNameForSession(splitSessions.get(0));
             } else {
-                focusedDisplayName = "Split";
+                focusedDisplayName = "Terminal";
             }
             ListItem group = new ListItem();
             group.type = TYPE_SPLIT_GROUP;
@@ -134,6 +136,10 @@ public class TermuxSessionsListViewController extends BaseAdapter
             mItems.add(group);
 
             if (mExpanded) {
+                ListItem miniItem = new ListItem();
+                miniItem.type = TYPE_SPLIT_MINI_VIEW;
+                mItems.add(miniItem);
+
                 for (int i = 0; i < splitSessions.size(); i++) {
                     TermuxSession s = splitSessions.get(i);
                     ListItem item = new ListItem();
@@ -165,6 +171,19 @@ public class TermuxSessionsListViewController extends BaseAdapter
             item.isChild = false;
             mItems.add(item);
         }
+    }
+
+    private String getDisplayNameForSession(TermuxSession session) {
+        if (session == null) return "Terminal";
+        TerminalSession terminalSession = session.getTerminalSession();
+        if (terminalSession == null) return "Terminal";
+        String name = terminalSession.mSessionName;
+        if (name == null || name.isEmpty()) name = "Terminal";
+        int sessionIndex = mSessions.indexOf(session);
+        if (sessionIndex >= 0) {
+            return "[" + (sessionIndex + 1) + "] " + name;
+        }
+        return name;
     }
 
     private TermuxSession findTermuxSession(TerminalSession terminalSession) {
@@ -204,7 +223,7 @@ public class TermuxSessionsListViewController extends BaseAdapter
 
     @Override
     public int getViewTypeCount() {
-        return 3;
+        return 4;
     }
 
     @SuppressLint("SetTextI18n")
@@ -212,6 +231,22 @@ public class TermuxSessionsListViewController extends BaseAdapter
     @Override
     public View getView(int position, View convertView, @NonNull ViewGroup parent) {
         ListItem item = mItems.get(position);
+
+        if (item.type == TYPE_SPLIT_MINI_VIEW) {
+            MiniSplitView miniView;
+            if (convertView instanceof MiniSplitView) {
+                miniView = (MiniSplitView) convertView;
+            } else {
+                miniView = new MiniSplitView(mActivity);
+                miniView.setLayoutParams(new AbsListView.LayoutParams(
+                    ViewGroup.LayoutParams.MATCH_PARENT,
+                    (int) (100 * mActivity.getResources().getDisplayMetrics().density + 0.5f)));
+                miniView.setPadding(32, 4, 16, 4);
+            }
+            miniView.setSplitLayout(mSplitLayout);
+            miniView.updateFromLayout();
+            return miniView;
+        }
 
         if (item.type == TYPE_SPLIT_GROUP) {
             TextView tv;
