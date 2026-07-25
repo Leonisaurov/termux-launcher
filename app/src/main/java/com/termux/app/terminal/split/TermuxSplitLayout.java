@@ -66,8 +66,8 @@ public class TermuxSplitLayout extends ViewGroup {
     public TermuxSplitLayout(Context context, AttributeSet attrs, int defStyleAttr) {
         super(context, attrs, defStyleAttr);
         setWillNotDraw(false);
-        setFocusable(true);
-        setFocusableInTouchMode(true);
+        setFocusable(false);
+        setFocusableInTouchMode(false);
         setBackgroundColor(BACKGROUND_COLOR);
 
         float density = Resources.getSystem().getDisplayMetrics().density;
@@ -99,6 +99,7 @@ public class TermuxSplitLayout extends ViewGroup {
         mFocusedPaneIndex = 0;
         terminalView.setId(View.generateViewId());
         addView(terminalView, new LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT));
+        terminalView.requestFocus();
         requestLayout();
     }
 
@@ -130,6 +131,9 @@ public class TermuxSplitLayout extends ViewGroup {
         newTerminalView.setId(View.generateViewId());
         addView(newTerminalView, mFocusedPaneIndex + 1,
             new LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT));
+
+        newTerminalView.requestFocus();
+        mFocusedPaneIndex = mFocusedPaneIndex + 1;
 
         if (mCallback != null) {
             mCallback.onPaneCountChanged(getPaneCount());
@@ -574,6 +578,9 @@ public class TermuxSplitLayout extends ViewGroup {
         if (mCallback != null) {
             TerminalView focusedView = getFocusedTerminalView();
             mCallback.onPaneFocused(focusedView, mFocusedPaneIndex);
+            if (focusedView != null) {
+                focusedView.requestFocus();
+            }
         }
     }
 }

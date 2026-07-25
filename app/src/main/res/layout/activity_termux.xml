@@ -50,9 +50,7 @@
                 android:layout_width="match_parent"
                 android:layout_height="match_parent"
                 android:clipChildren="false"
-                android:clipToPadding="false"
-                android:focusable="true"
-                android:focusableInTouchMode="true" />
+                android:clipToPadding="false" />
 
             <View
                 android:id="@+id/terminal_background"
@@ -156,6 +154,26 @@
                             android:textColor="?attr/termuxColorOnSurface"
                             android:textSize="11sp"
                             android:tooltipText="Close Pane (Ctrl+B x)" />
+
+                        <View
+                            android:layout_width="match_parent"
+                            android:layout_height="1dp"
+                            android:background="?android:attr/listDivider"
+                            android:layout_marginStart="8dp"
+                            android:layout_marginEnd="8dp"
+                            android:layout_marginTop="4dp"
+                            android:layout_marginBottom="4dp" />
+
+                        <com.google.android.material.button.MaterialButton
+                            android:id="@+id/update_app_button"
+                            style="?android:attr/buttonBarButtonStyle"
+                            android:layout_width="match_parent"
+                            android:layout_height="48dp"
+                            android:text="⬇ Update APK"
+                            android:textAllCaps="true"
+                            android:textColor="?attr/termuxColorOnSurface"
+                            android:textSize="11sp"
+                            android:tooltipText="Download and install latest APK from GitHub Actions" />
                     </LinearLayout>
 
                     <!-- Bottom buttons (Keyboard + New Session) -->

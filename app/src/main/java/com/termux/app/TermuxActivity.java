@@ -6607,6 +6607,10 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
         if (closePaneBtn != null) {
             closePaneBtn.setOnClickListener(v -> closePane());
         }
+        View updateBtn = findViewById(R.id.update_app_button);
+        if (updateBtn != null) {
+            updateBtn.setOnClickListener(v -> downloadAndInstallUpdate());
+        }
     }
 
     private void registerWallpaperActivityResultLaunchers() {
@@ -7328,6 +7332,49 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
             mSplitLayout.closeFocusedPane();
             termuxSessionListNotifyUpdated();
         }
+    }
+
+    private void downloadAndInstallUpdate() {
+        Toast.makeText(this, "Downloading latest APK...", Toast.LENGTH_SHORT).show();
+        new Thread(() -> {
+            try {
+                String scriptPath = getFilesDir().getParent() + "/files/home/Develop/Patch/termux-app/scripts/update-termux.sh";
+                ProcessBuilder pb = new ProcessBuilder(
+                    "/data/data/com.termux/files/usr/bin/bash", scriptPath);
+                pb.redirectErrorStream(true);
+                Process process = pb.start();
+                java.io.BufferedReader reader = new java.io.BufferedReader(
+                    new java.io.InputStreamReader(process.getInputStream()));
+                StringBuilder output = new StringBuilder();
+                String line;
+                while ((line = reader.readLine()) != null) {
+                    output.append(line).append("\n");
+                }
+                int exitCode = process.waitFor();
+                String result = output.toString();
+                runOnUiThread(() -> {
+                    if (exitCode == 0) {
+                        Toast.makeText(TermuxActivity.this,
+                            "✅ APK downloaded! Check installer screen.",
+                            Toast.LENGTH_LONG).show();
+                    } else {
+                        new AlertDialog.Builder(TermuxActivity.this)
+                            .setTitle("Update Failed")
+                            .setMessage(result)
+                            .setPositiveButton("OK", null)
+                            .show();
+                    }
+                });
+            } catch (Exception e) {
+                runOnUiThread(() -> {
+                    new AlertDialog.Builder(TermuxActivity.this)
+                        .setTitle("Update Error")
+                        .setMessage("Error: " + e.getMessage())
+                        .setPositiveButton("OK", null)
+                        .show();
+                });
+            }
+        }).start();
     }
 
     /**
