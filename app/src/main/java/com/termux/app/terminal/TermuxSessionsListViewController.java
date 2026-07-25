@@ -120,9 +120,9 @@ public class TermuxSessionsListViewController extends BaseAdapter
             if (focusedSession != null) {
                 int sessionIndex = mSessions.indexOf(focusedSession);
                 if (sessionIndex >= 0) {
-                    focusedDisplayName = "[" + (sessionIndex + 1) + "] " + focusedSession.getSessionName();
+                    focusedDisplayName = "[" + (sessionIndex + 1) + "] " + focusedSession.mSessionName;
                 } else {
-                    focusedDisplayName = focusedSession.getSessionName();
+                    focusedDisplayName = focusedSession.mSessionName;
                 }
             } else {
                 focusedDisplayName = "Split";
