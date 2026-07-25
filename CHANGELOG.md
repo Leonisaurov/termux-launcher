@@ -54,3 +54,14 @@
 - Session cleanup on exit
 - Nested split close
 - Cancel download button
+
+## [0.4.0] - 2026-07-25
+### Added
+- TermuxClipboardServer: TCP socket for instant clipboard access
+- xsel via /dev/tcp (no external dependencies, no delays)
+- Versioned releases per build (v0.4.0-build-N)
+- Auto-cleanup old releases (keeps last 10)
+
+### Fixed
+- Release management now creates unique releases per build
+- nightly-split-latest tag stays updated for download button

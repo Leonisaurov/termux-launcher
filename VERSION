@@ -1,20 +1,11 @@
 # Termux Split Screen - Version Tracking
-#
-# This file tracks the current version state of the termux-app fork
-# with split-screen features.
-#
-# Format:
-#   VERSION_MAJOR.MINOR.PATCH (date)
-#   GIT_HASH=<commit-hash>
-#   STATUS=<working|broken|untested>
-
-VERSION=0.3.0
+VERSION=0.4.0
 DATE=2026-07-25
 GIT_HASH=$(git rev-parse --short HEAD)
 STATUS=testing
 CHANGES="
-- Re-added xsel clipboard tool with ContentProvider
-- Fixed: dynamic provider authority (\${applicationId}.clipboard)
-- Fixed: null safety and error handling in ClipboardContentProvider
-- Version tracking system (VERSION + CHANGELOG + git tags)
+- Own clipboard server (TCP socket) for fast xsel
+- Collapsible Split Window tree
+- Split/Standalone view switching
+- Version tracking system
 "

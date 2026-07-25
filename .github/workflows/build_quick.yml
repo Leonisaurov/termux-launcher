@@ -117,37 +117,59 @@ jobs:
       - name: Upload APK to GitHub Release
         shell: bash
         run: |
-          echo "🧹 Cleaning up old nightly-split tags..."
-          # Delete all old nightly-split-* tags (with sha) leaving only nightly-split-latest
-          for tag in $(gh release list --repo ${{ github.repository }} --limit 50 --json tagName --jq '.[].tagName' 2>/dev/null | grep 'nightly-split-' | grep -v 'nightly-split-latest' || true); do
-            echo "  Deleting old: $tag"
-            gh release delete "$tag" --yes 2>/dev/null || true
-            git push origin ":refs/tags/$tag" 2>/dev/null || true
-          done
+          set -euo pipefail
 
-          echo "🗑️ Deleting old release and tag..."
-          # Delete existing release (ignore errors if it doesn't exist)
-          gh release delete nightly-split-latest --yes 2>/dev/null || echo "No old release to delete"
-          # Delete existing tag locally and remotely
-          git tag -d nightly-split-latest 2>/dev/null || true
-          git push origin :refs/tags/nightly-split-latest 2>/dev/null || true
+          GITHUB_SHA="${GITHUB_SHA:-$(git rev-parse HEAD)}"
+          SHORT_SHA="${GITHUB_SHA:0:7}"
+          BUILD_NUMBER="${{ github.run_number }}"
+          
+          # Read version from VERSION file
+          APP_VERSION=$(grep -m 1 '^VERSION=' VERSION | sed 's/VERSION=//')
+          RELEASE_TAG="v${APP_VERSION}-build-${BUILD_NUMBER}"
 
-          # Clean local tags too
-          git tag -l 'nightly-split-*' | grep -v 'nightly-split-latest' | xargs -r git tag -d 2>/dev/null || true
-          
-          echo "🏷️ Creating new tag and release..."
-          # Create new tag
-          git tag nightly-split-latest "${{ github.sha }}"
-          git push origin nightly-split-latest
-          
-          # Create release (this also creates the tag if missing)
-          gh release create nightly-split-latest \
+          echo "📦 Creating release: ${RELEASE_TAG} (app version ${APP_VERSION})"
+
+          # Delete the release if it already exists (from a re-run)
+          gh release delete "$RELEASE_TAG" --yes 2>/dev/null || true
+          git tag -d "$RELEASE_TAG" 2>/dev/null || true
+          git push origin ":refs/tags/$RELEASE_TAG" 2>/dev/null || true
+
+          # Create versioned release
+          gh release create "$RELEASE_TAG" \
             "${{ env.APK_DIR_PATH }}/termux-app-split.apk#termux-app-split.apk" \
             --repo ${{ github.repository }} \
-            --title "Nightly Split (latest)" \
-            --notes "Latest APK from ${{ github.ref_name }} branch. Build #${{ github.run_number }}" \
-            # No --prerelease flag so it shows as a full release on the releases page
-          
-          echo "✅ Release created: full release, not prerelease"
+            --title "v${APP_VERSION} Build #${BUILD_NUMBER} (${SHORT_SHA})" \
+            --notes "Build from branch \`${{ github.ref_name }}\` at commit \`${SHORT_SHA}\`.
+
+## Cambios
+- Ve el changelog en [CHANGELOG.md](https://github.com/${{ github.repository }}/blob/${GITHUB_SHA}/CHANGELOG.md)
+- Versión: v${APP_VERSION} (build ${BUILD_NUMBER})
+
+## Tags disponibles
+- \`${RELEASE_TAG}\` — esta build específica
+- \`nightly-split-latest\` — última build (actualizada automáticamente)" \
+            --prerelease
+
+          echo "✅ Release created: ${RELEASE_TAG}"
+
+          echo "🏷️ Updating nightly-split-latest tag..."
+          # Update the nightly-split-latest tag to point to this commit
+          git tag -f nightly-split-latest "${{ github.sha }}"
+          git push origin :refs/tags/nightly-split-latest 2>/dev/null || true
+          git push origin nightly-split-latest
+
+          # Delete old builds (keep only last 10)
+          echo "🧹 Cleaning up old releases (keeping last 10)..."
+          gh release list --repo ${{ github.repository }} --limit 50 \
+            --json tagName,createdAt --jq '.[] | "\(.createdAt) \(.tagName)"' | \
+            sort -r | tail -n +11 | awk '{print $2}' | while read old_tag; do
+            if [ -n "$old_tag" ] && [ "$old_tag" != "nightly-split-latest" ]; then
+              echo "  Deleting old: $old_tag"
+              gh release delete "$old_tag" --yes 2>/dev/null || true
+              git push origin ":refs/tags/$old_tag" 2>/dev/null || true
+            fi
+          done
+
+          echo "✅ Latest tag updated: nightly-split-latest → ${SHORT_SHA}"
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
