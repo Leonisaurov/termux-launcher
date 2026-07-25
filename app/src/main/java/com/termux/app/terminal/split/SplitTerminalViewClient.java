@@ -169,9 +169,9 @@ public class SplitTerminalViewClient implements TerminalViewClient {
 
     private void updateCommandModeIndicator() {
         if (mInCommandMode) {
-            mActivity.getWindow().setTitle("[TMUX] " + mActivity.getString(com.termux.R.string.app_name));
+            mActivity.getWindow().setTitle("[TMUX] Termux");
         } else {
-            mActivity.getWindow().setTitle(mActivity.getString(com.termux.R.string.app_name));
+            mActivity.getWindow().setTitle("Termux");
         }
     }
 

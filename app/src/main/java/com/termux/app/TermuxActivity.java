@@ -118,6 +118,7 @@ import com.termux.app.theme.TermuxThemeManager;
 import com.termux.shared.termux.crash.TermuxCrashUtils;
 import com.termux.shared.termux.settings.preferences.TermuxAppSharedPreferences;
 import com.termux.shared.termux.settings.preferences.TermuxPreferenceConstants;
+import com.termux.shared.termux.shell.command.runner.terminal.TermuxSession;
 import com.termux.app.terminal.TermuxSessionsListViewController;
 import com.termux.app.terminal.io.TerminalToolbarViewPager;
 import com.termux.app.terminal.TermuxTerminalViewClient;
@@ -5374,7 +5375,7 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
         mSplitLayout = findViewById(R.id.terminal_split_layout);
 
         // Create the initial TerminalView for the first pane
-        TerminalView initialView = new TerminalView(this);
+        TerminalView initialView = new TerminalView(this, null);
         initialView.setTerminalViewClient(mTermuxTerminalViewClient);
 
         // Initialize split layout with single pane
@@ -5387,7 +5388,7 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
         mSplitLayout.setSplitLayoutCallback(new TermuxSplitLayout.SplitLayoutCallback() {
             @Override
             public TerminalView createNewTerminalView() {
-                TerminalView newView = new TerminalView(TermuxActivity.this);
+                TerminalView newView = new TerminalView(TermuxActivity.this, null);
                 // All TerminalViews use the SplitTerminalViewClient wrapper
                 newView.setTerminalViewClient(mSplitTerminalViewClient);
                 return newView;
@@ -7357,8 +7358,17 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
      * Toggle zoom: make the focused pane fill the screen temporarily.
      */
     public void toggleZoomPane() {
-        if (mSplitLayout != null && mSplitLayout.getPaneCount() > 1) {
-            mSplitLayout.toggleZoomPane();
+        if (mSplitLayout == null || mSplitLayout.getPaneCount() <= 1) return;
+        int targetIndex = mSplitLayout.getFocusedPaneIndex();
+        while (mSplitLayout.getPaneCount() > 1) {
+            if (mSplitLayout.getFocusedPaneIndex() == 0 && targetIndex > 0) {
+                mSplitLayout.closeFocusedPane();
+                targetIndex--;
+            } else if (mSplitLayout.getFocusedPaneIndex() == 1 && targetIndex == 0) {
+                mSplitLayout.closeFocusedPane();
+            } else {
+                mSplitLayout.focusNext();
+            }
         }
     }
 
