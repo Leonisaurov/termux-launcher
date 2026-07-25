@@ -1,0 +1,23 @@
+# Termux Split Screen - Version Tracking
+#
+# This file tracks the current version state of the termux-app fork
+# with split-screen features.
+#
+# Format:
+#   VERSION_MAJOR.MINOR.PATCH (date)
+#   GIT_HASH=<commit-hash>
+#   STATUS=<working|broken|untested>
+
+VERSION=0.2.0
+DATE=2026-07-25
+GIT_HASH=d6354e86
+STATUS=working
+CHANGES="
+- Split/standalone view switching
+- Collapsible Split Window tree in drawer
+- MiniSplitView visual layout
+- Drag-and-drop from drawer to create splits
+- Grouped session list
+- Standalone session support
+- Back button returns to split from standalone
+"
