@@ -527,6 +527,36 @@ public class TermuxTerminalViewClient extends TermuxTerminalViewClientBase {
                             case TermuxPropertyConstants.ACTION_SHORTCUT_RENAME_SESSION:
                                 mTermuxTerminalSessionActivityClient.renameSession(mActivity.getCurrentSession());
                                 return true;
+                            case TermuxPropertyConstants.ACTION_SHORTCUT_SPLIT_HORIZONTAL:
+                                mActivity.splitHorizontal();
+                                return true;
+                            case TermuxPropertyConstants.ACTION_SHORTCUT_SPLIT_VERTICAL:
+                                mActivity.splitVertical();
+                                return true;
+                            case TermuxPropertyConstants.ACTION_SHORTCUT_SPLIT_FOCUS_NEXT:
+                                mActivity.focusNext();
+                                return true;
+                            case TermuxPropertyConstants.ACTION_SHORTCUT_SPLIT_FOCUS_PREVIOUS:
+                                mActivity.focusPrevious();
+                                return true;
+                            case TermuxPropertyConstants.ACTION_SHORTCUT_SPLIT_CLOSE:
+                                mActivity.closePane();
+                                return true;
+                            case TermuxPropertyConstants.ACTION_SHORTCUT_SPLIT_RESIZE_UP:
+                                mActivity.resizePane(0, -10);
+                                return true;
+                            case TermuxPropertyConstants.ACTION_SHORTCUT_SPLIT_RESIZE_DOWN:
+                                mActivity.resizePane(0, 10);
+                                return true;
+                            case TermuxPropertyConstants.ACTION_SHORTCUT_SPLIT_RESIZE_LEFT:
+                                mActivity.resizePane(-10, 0);
+                                return true;
+                            case TermuxPropertyConstants.ACTION_SHORTCUT_SPLIT_RESIZE_RIGHT:
+                                mActivity.resizePane(10, 0);
+                                return true;
+                            case TermuxPropertyConstants.ACTION_SHORTCUT_SPLIT_ZOOM:
+                                mActivity.toggleZoomPane();
+                                return true;
                         }
                     }
                 }

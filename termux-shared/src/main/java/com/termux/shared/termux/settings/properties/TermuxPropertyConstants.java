@@ -348,6 +348,37 @@ public final class TermuxPropertyConstants {
     // Default: "shortcut.rename-session"
     public static final String KEY_SHORTCUT_RENAME_SESSION = "shortcut.rename-session";
 
+    // Split-screen shortcuts (tmux-like)
+    // Default: "shortcut.split-horizontal"
+    public static final String KEY_SHORTCUT_SPLIT_HORIZONTAL = "shortcut.split-horizontal";
+
+    // Default: "shortcut.split-vertical"
+    public static final String KEY_SHORTCUT_SPLIT_VERTICAL = "shortcut.split-vertical";
+
+    // Default: "shortcut.split-focus-next"
+    public static final String KEY_SHORTCUT_SPLIT_FOCUS_NEXT = "shortcut.split-focus-next";
+
+    // Default: "shortcut.split-focus-previous"
+    public static final String KEY_SHORTCUT_SPLIT_FOCUS_PREVIOUS = "shortcut.split-focus-previous";
+
+    // Default: "shortcut.split-close"
+    public static final String KEY_SHORTCUT_SPLIT_CLOSE = "shortcut.split-close";
+
+    // Default: "shortcut.split-resize-up"
+    public static final String KEY_SHORTCUT_SPLIT_RESIZE_UP = "shortcut.split-resize-up";
+
+    // Default: "shortcut.split-resize-down"
+    public static final String KEY_SHORTCUT_SPLIT_RESIZE_DOWN = "shortcut.split-resize-down";
+
+    // Default: "shortcut.split-resize-left"
+    public static final String KEY_SHORTCUT_SPLIT_RESIZE_LEFT = "shortcut.split-resize-left";
+
+    // Default: "shortcut.split-resize-right"
+    public static final String KEY_SHORTCUT_SPLIT_RESIZE_RIGHT = "shortcut.split-resize-right";
+
+    // Default: "shortcut.split-zoom"
+    public static final String KEY_SHORTCUT_SPLIT_ZOOM = "shortcut.split-zoom";
+
     public static final int ACTION_SHORTCUT_CREATE_SESSION = 1;
 
     public static final int ACTION_SHORTCUT_NEXT_SESSION = 2;
@@ -356,10 +387,22 @@ public final class TermuxPropertyConstants {
 
     public static final int ACTION_SHORTCUT_RENAME_SESSION = 4;
 
+    // Split-screen actions (tmux-like)
+    public static final int ACTION_SHORTCUT_SPLIT_HORIZONTAL = 11;
+    public static final int ACTION_SHORTCUT_SPLIT_VERTICAL = 12;
+    public static final int ACTION_SHORTCUT_SPLIT_FOCUS_NEXT = 13;
+    public static final int ACTION_SHORTCUT_SPLIT_FOCUS_PREVIOUS = 14;
+    public static final int ACTION_SHORTCUT_SPLIT_CLOSE = 15;
+    public static final int ACTION_SHORTCUT_SPLIT_RESIZE_UP = 16;
+    public static final int ACTION_SHORTCUT_SPLIT_RESIZE_DOWN = 17;
+    public static final int ACTION_SHORTCUT_SPLIT_RESIZE_LEFT = 18;
+    public static final int ACTION_SHORTCUT_SPLIT_RESIZE_RIGHT = 19;
+    public static final int ACTION_SHORTCUT_SPLIT_ZOOM = 20;
+
     /**
      * Defines the bidirectional map for session shortcut values and their internal actions
      */
-    public static final ImmutableBiMap<String, Integer> MAP_SESSION_SHORTCUTS = new ImmutableBiMap.Builder<String, Integer>().put(KEY_SHORTCUT_CREATE_SESSION, ACTION_SHORTCUT_CREATE_SESSION).put(KEY_SHORTCUT_NEXT_SESSION, ACTION_SHORTCUT_NEXT_SESSION).put(KEY_SHORTCUT_PREVIOUS_SESSION, ACTION_SHORTCUT_PREVIOUS_SESSION).put(KEY_SHORTCUT_RENAME_SESSION, ACTION_SHORTCUT_RENAME_SESSION).build();
+    public static final ImmutableBiMap<String, Integer> MAP_SESSION_SHORTCUTS = new ImmutableBiMap.Builder<String, Integer>().put(KEY_SHORTCUT_CREATE_SESSION, ACTION_SHORTCUT_CREATE_SESSION).put(KEY_SHORTCUT_NEXT_SESSION, ACTION_SHORTCUT_NEXT_SESSION).put(KEY_SHORTCUT_PREVIOUS_SESSION, ACTION_SHORTCUT_PREVIOUS_SESSION).put(KEY_SHORTCUT_RENAME_SESSION, ACTION_SHORTCUT_RENAME_SESSION).put(KEY_SHORTCUT_SPLIT_HORIZONTAL, ACTION_SHORTCUT_SPLIT_HORIZONTAL).put(KEY_SHORTCUT_SPLIT_VERTICAL, ACTION_SHORTCUT_SPLIT_VERTICAL).put(KEY_SHORTCUT_SPLIT_FOCUS_NEXT, ACTION_SHORTCUT_SPLIT_FOCUS_NEXT).put(KEY_SHORTCUT_SPLIT_FOCUS_PREVIOUS, ACTION_SHORTCUT_SPLIT_FOCUS_PREVIOUS).put(KEY_SHORTCUT_SPLIT_CLOSE, ACTION_SHORTCUT_SPLIT_CLOSE).put(KEY_SHORTCUT_SPLIT_RESIZE_UP, ACTION_SHORTCUT_SPLIT_RESIZE_UP).put(KEY_SHORTCUT_SPLIT_RESIZE_DOWN, ACTION_SHORTCUT_SPLIT_RESIZE_DOWN).put(KEY_SHORTCUT_SPLIT_RESIZE_LEFT, ACTION_SHORTCUT_SPLIT_RESIZE_LEFT).put(KEY_SHORTCUT_SPLIT_RESIZE_RIGHT, ACTION_SHORTCUT_SPLIT_RESIZE_RIGHT).put(KEY_SHORTCUT_SPLIT_ZOOM, ACTION_SHORTCUT_SPLIT_ZOOM).build();
 
     /* String */
     /**
@@ -480,7 +523,7 @@ public final class TermuxPropertyConstants {
     KEY_DISABLE_FILE_SHARE_RECEIVER, KEY_DISABLE_FILE_VIEW_RECEIVER, KEY_DISABLE_HARDWARE_KEYBOARD_SHORTCUTS, KEY_DISABLE_TERMINAL_SESSION_CHANGE_TOAST, KEY_ENFORCE_CHAR_BASED_INPUT, KEY_EXTRA_KEYS_TEXT_ALL_CAPS, KEY_HIDE_SOFT_KEYBOARD_ON_STARTUP, KEY_RUN_TERMUX_AM_SOCKET_SERVER, KEY_TERMINAL_ONCLICK_URL_OPEN, KEY_DRAW_BOLD_TEXT_WITH_BRIGHT_COLORS, KEY_USE_CTRL_SPACE_WORKAROUND, KEY_USE_FULLSCREEN, KEY_USE_FULLSCREEN_WORKAROUND, TermuxConstants.PROP_ALLOW_EXTERNAL_APPS, KEY_ACTIVITY_FINISH_REMOVE_TASK, /* int */
     KEY_BELL_BEHAVIOUR, KEY_DELETE_TMPDIR_FILES_OLDER_THAN_X_DAYS_ON_EXIT, KEY_TERMINAL_CURSOR_BLINK_RATE, KEY_TERMINAL_CURSOR_STYLE, KEY_TERMINAL_MARGIN_HORIZONTAL, KEY_TERMINAL_MARGIN_VERTICAL, KEY_TERMINAL_TRANSCRIPT_ROWS, /* float */
     KEY_TERMINAL_TOOLBAR_HEIGHT_SCALE_FACTOR, /* Integer */
-    KEY_SHORTCUT_CREATE_SESSION, KEY_SHORTCUT_NEXT_SESSION, KEY_SHORTCUT_PREVIOUS_SESSION, KEY_SHORTCUT_RENAME_SESSION, /* String */
+    KEY_SHORTCUT_CREATE_SESSION, KEY_SHORTCUT_NEXT_SESSION, KEY_SHORTCUT_PREVIOUS_SESSION, KEY_SHORTCUT_RENAME_SESSION, KEY_SHORTCUT_SPLIT_HORIZONTAL, KEY_SHORTCUT_SPLIT_VERTICAL, KEY_SHORTCUT_SPLIT_FOCUS_NEXT, KEY_SHORTCUT_SPLIT_FOCUS_PREVIOUS, KEY_SHORTCUT_SPLIT_CLOSE, KEY_SHORTCUT_SPLIT_RESIZE_UP, KEY_SHORTCUT_SPLIT_RESIZE_DOWN, KEY_SHORTCUT_SPLIT_RESIZE_LEFT, KEY_SHORTCUT_SPLIT_RESIZE_RIGHT, KEY_SHORTCUT_SPLIT_ZOOM, /* String */
     KEY_BACK_KEY_BEHAVIOUR, KEY_DEFAULT_WORKING_DIRECTORY, KEY_EXTRA_KEYS, KEY_EXTRA_KEYS2, KEY_EXTRA_KEYS_STYLE, KEY_NIGHT_MODE, KEY_SOFT_KEYBOARD_TOGGLE_BEHAVIOUR, KEY_VOLUME_KEYS_BEHAVIOUR, KEY_BACKGROUND_OVERLAY_COLOR));
 
     /**

@@ -136,6 +136,14 @@ import com.termux.terminal.TerminalSession;
 import com.termux.terminal.TerminalSessionClient;
 import com.termux.view.TerminalView;
 import com.termux.view.TerminalViewClient;
+
+import com.termux.app.terminal.split.TermuxSplitLayout;
+import com.termux.app.terminal.split.SplitTerminalViewClient;
+import com.termux.app.terminal.split.BranchNode;
+import com.termux.app.terminal.split.LeafNode;
+import com.termux.app.terminal.split.SplitNode;
+import com.termux.app.terminal.split.TermuxSplitUtils;
+
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.appcompat.app.AppCompatActivity;
@@ -191,6 +199,16 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
      * The {@link TerminalView} shown in  {@link TermuxActivity} that displays the terminal.
      */
     TerminalView mTerminalView;
+
+    /**
+     * The {@link TermuxSplitLayout} that manages split-screen terminal panes.
+     */
+    TermuxSplitLayout mSplitLayout;
+
+    /**
+     * The {@link SplitTerminalViewClient} wrapper that handles tmux-like command mode.
+     */
+    SplitTerminalViewClient mSplitTerminalViewClient;
 
     /**
      *  The {@link TerminalViewClient} interface implementation to allow for communication between
@@ -639,6 +657,7 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
         setSettingsButtonView();
         setNewSessionButtonView();
         setToggleKeyboardView();
+        setSplitButtonsView();
         FileReceiverActivity.updateFileReceiverActivityComponentsState(this);
         try {
             // Start the {@link TermuxService} and make it run regardless of who is bound to it
@@ -859,10 +878,10 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
         if (mPreferences == null) {
             return;
         }
-        View terminalSurfaceHost = findViewById(R.id.terminal_surface_host);
+        View terminalSurfaceHost = mSplitLayout; // R.id.terminal_surface_host replaced by TermuxSplitLayout
         View terminalBodySurface = findViewById(R.id.terminal_background);
         View terminalStatusSurface = findViewById(R.id.terminal_status_bar_background);
-        View terminalView = findViewById(R.id.terminal_view);
+        View terminalView = (mSplitLayout != null) ? mSplitLayout.getFocusedTerminalView() : null;
         if (terminalSurfaceHost == null || terminalBodySurface == null || terminalStatusSurface == null) {
             return;
         }
@@ -3993,6 +4012,14 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
             } else {
                 mTermuxTerminalSessionActivityClient.setCurrentSession(mTermuxTerminalSessionActivityClient.getCurrentStoredSessionOrLast());
             }
+            // If there are multiple sessions, set up the split layout for the existing sessions
+            if (mSplitLayout != null && mTermuxService.getTermuxSessionsSize() > 1) {
+                // Sync first session to the first TerminalView
+                TerminalSession firstSession = mTermuxService.getTermuxSession(0).getTerminalSession();
+                if (firstSession != null && mSplitLayout.getPaneCount() == 1) {
+                    // The initial TerminalView should have this session
+                }
+            }
         }
         // Update the {@link TerminalSession} and {@link TerminalEmulator} clients.
         mTermuxService.setTermuxTerminalSessionClient(mTermuxTerminalSessionActivityClient);
@@ -5342,9 +5369,55 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
         mTermuxTerminalSessionActivityClient = new TermuxTerminalSessionActivityClient(this);
         mTermuxTerminalViewClient = new TermuxTerminalViewClient(this, mTermuxTerminalSessionActivityClient);
         mTermuxTerminalViewClient.setSuggestionBarCallback(this);
-        // Set termux terminal view
-        mTerminalView = findViewById(R.id.terminal_view);
-        mTerminalView.setTerminalViewClient(mTermuxTerminalViewClient);
+
+        // Get the split layout (replaces FrameLayout terminal_surface_host in XML)
+        mSplitLayout = findViewById(R.id.terminal_split_layout);
+
+        // Create the initial TerminalView for the first pane
+        TerminalView initialView = new TerminalView(this);
+        initialView.setTerminalViewClient(mTermuxTerminalViewClient);
+
+        // Initialize split layout with single pane
+        mSplitLayout.initSinglePane(initialView);
+
+        // Set mTerminalView to the initial view (for backward compatibility with legacy code)
+        mTerminalView = initialView;
+
+        // Set callback to sync mTerminalView when focus changes
+        mSplitLayout.setSplitLayoutCallback(new TermuxSplitLayout.SplitLayoutCallback() {
+            @Override
+            public TerminalView createNewTerminalView() {
+                TerminalView newView = new TerminalView(TermuxActivity.this);
+                // All TerminalViews use the SplitTerminalViewClient wrapper
+                newView.setTerminalViewClient(mSplitTerminalViewClient);
+                return newView;
+            }
+
+            @Override
+            public void onPaneFocused(TerminalView view, int paneIndex) {
+                // Keep mTerminalView in sync for backward compatibility
+                mTerminalView = view;
+                // Notify session list UI
+                termuxSessionListNotifyUpdated();
+            }
+
+            @Override
+            public void onPaneCountChanged(int newCount) {
+                // Optionally update UI elements
+            }
+        });
+
+        // Create SplitTerminalViewClient that wraps the raw client for command mode
+        mSplitTerminalViewClient = new SplitTerminalViewClient(
+            mTermuxTerminalViewClient, mSplitLayout, this);
+        // Apply the split client to all existing TerminalViews
+        for (int i = 0; i < mSplitLayout.getChildCount(); i++) {
+            View child = mSplitLayout.getChildAt(i);
+            if (child instanceof TerminalView) {
+                ((TerminalView) child).setTerminalViewClient(mSplitTerminalViewClient);
+            }
+        }
+
         syncTerminalWallpaperRenderingMode();
         applySuggestionBarInputChar();
         if (mTermuxTerminalViewClient != null)
@@ -6506,6 +6579,21 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
         });
     }
 
+    private void setSplitButtonsView() {
+        View splitHorizontalBtn = findViewById(R.id.split_horizontal_button);
+        if (splitHorizontalBtn != null) {
+            splitHorizontalBtn.setOnClickListener(v -> splitHorizontal());
+        }
+        View splitVerticalBtn = findViewById(R.id.split_vertical_button);
+        if (splitVerticalBtn != null) {
+            splitVerticalBtn.setOnClickListener(v -> splitVertical());
+        }
+        View closePaneBtn = findViewById(R.id.close_pane_button);
+        if (closePaneBtn != null) {
+            closePaneBtn.setOnClickListener(v -> closePane());
+        }
+    }
+
     private void registerWallpaperActivityResultLaunchers() {
         mWallpaperPickerLauncher = registerForActivityResult(
             new ActivityResultContracts.PickVisualMedia(),
@@ -7193,6 +7281,87 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
         return mTermuxTerminalSessionActivityClient;
     }
 
+    // ========================================
+    // Split-Screen Operations (tmux-like)
+    // ========================================
+
+    /**
+     * Split the focused pane horizontally (left/right).
+     */
+    public void splitHorizontal() {
+        if (mSplitLayout != null && mTermuxService != null) {
+            // Create a new session for the new pane
+            String workingDir = getCurrentSession() != null ? getCurrentSession().getCwd() : null;
+            TermuxSession newTermuxSession = mTermuxService.createTermuxSession(
+                null, null, null, workingDir, false, null);
+            if (newTermuxSession != null) {
+                mSplitLayout.splitFocusedPane(BranchNode.Orientation.HORIZONTAL);
+                termuxSessionListNotifyUpdated();
+            }
+        }
+    }
+
+    /**
+     * Split the focused pane vertically (top/bottom).
+     */
+    public void splitVertical() {
+        if (mSplitLayout != null && mTermuxService != null) {
+            String workingDir = getCurrentSession() != null ? getCurrentSession().getCwd() : null;
+            TermuxSession newTermuxSession = mTermuxService.createTermuxSession(
+                null, null, null, workingDir, false, null);
+            if (newTermuxSession != null) {
+                mSplitLayout.splitFocusedPane(BranchNode.Orientation.VERTICAL);
+                termuxSessionListNotifyUpdated();
+            }
+        }
+    }
+
+    /**
+     * Close the focused pane. If only one pane remains, does nothing.
+     */
+    public void closePane() {
+        if (mSplitLayout != null && mSplitLayout.getPaneCount() > 1) {
+            mSplitLayout.closeFocusedPane();
+            termuxSessionListNotifyUpdated();
+        }
+    }
+
+    /**
+     * Move focus to the next pane.
+     */
+    public void focusNext() {
+        if (mSplitLayout != null && mSplitLayout.getPaneCount() > 1) {
+            mSplitLayout.focusNext();
+        }
+    }
+
+    /**
+     * Move focus to the previous pane.
+     */
+    public void focusPrevious() {
+        if (mSplitLayout != null && mSplitLayout.getPaneCount() > 1) {
+            mSplitLayout.focusPrevious();
+        }
+    }
+
+    /**
+     * Resize the focused pane by the given delta.
+     */
+    public void resizePane(int deltaX, int deltaY) {
+        if (mSplitLayout != null) {
+            mSplitLayout.resizeFocusedPane(deltaX, deltaY);
+        }
+    }
+
+    /**
+     * Toggle zoom: make the focused pane fill the screen temporarily.
+     */
+    public void toggleZoomPane() {
+        if (mSplitLayout != null && mSplitLayout.getPaneCount() > 1) {
+            mSplitLayout.toggleZoomPane();
+        }
+    }
+
     @Nullable
     public TerminalSession getCurrentSession() {
         if (mTerminalView != null)
@@ -7627,7 +7796,7 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
             scheduleAccessoryRenderSync("accessory:layout");
         };
         int[] watchIds = {
-            R.id.terminal_view,
+            R.id.terminal_split_layout,
             R.id.accessory_stack_container,
             R.id.apps_bar_viewpager,
             R.id.apps_bar_indicator_band,
@@ -7648,7 +7817,7 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
             return;
         }
         int[] watchIds = {
-            R.id.terminal_view,
+            R.id.terminal_split_layout,
             R.id.accessory_stack_container,
             R.id.apps_bar_viewpager,
             R.id.apps_bar_indicator_band,

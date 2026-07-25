@@ -45,34 +45,21 @@
             android:clipChildren="false"
             android:clipToPadding="false">
 
-            <FrameLayout
-                android:id="@+id/terminal_surface_host"
+            <com.termux.app.terminal.split.TermuxSplitLayout
+                android:id="@+id/terminal_split_layout"
                 android:layout_width="match_parent"
                 android:layout_height="match_parent"
                 android:clipChildren="false"
-                android:clipToPadding="false">
+                android:clipToPadding="false"
+                android:focusable="true"
+                android:focusableInTouchMode="true" />
 
-                <View
-                    android:id="@+id/terminal_background"
-                    android:layout_width="match_parent"
-                    android:layout_height="match_parent"
-                    android:visibility="gone"
-                    android:background="?attr/termuxColorSurfaceBase" />
-
-                <com.termux.view.TerminalView
-                    android:id="@+id/terminal_view"
-                    android:layout_width="match_parent"
-                    android:layout_height="match_parent"
-                    android:defaultFocusHighlightEnabled="false"
-                    android:focusableInTouchMode="true"
-                    android:overScrollMode="never"
-                    android:smoothScrollbar="false"
-                    android:scrollingCache="true"
-                    android:fastScrollEnabled="false"
-                    android:scrollbarThumbVertical="@drawable/terminal_scroll_shape"
-                    android:scrollbars="vertical"
-                    tools:ignore="UnusedAttribute" />
-            </FrameLayout>
+            <View
+                android:id="@+id/terminal_background"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:visibility="gone"
+                android:background="?attr/termuxColorSurfaceBase" />
 
             <RelativeLayout
                 android:layout_width="240dp"
@@ -145,6 +132,39 @@
                             android:text="@string/action_toggle_soft_keyboard"
                             android:textAllCaps="true"
                             android:textColor="?attr/termuxColorOnSurface" />
+
+                        <com.google.android.material.button.MaterialButton
+                            android:id="@+id/split_horizontal_button"
+                            style="@style/Widget.Termux.ToolbarButton"
+                            android:layout_width="wrap_content"
+                            android:layout_height="match_parent"
+                            android:contentDescription="@string/content_description_new_session"
+                            android:padding="4dp"
+                            android:text="⤡"
+                            android:textSize="12sp"
+                            android:tooltipText="Split Horizontal" />
+
+                        <com.google.android.material.button.MaterialButton
+                            android:id="@+id/split_vertical_button"
+                            style="@style/Widget.Termux.ToolbarButton"
+                            android:layout_width="wrap_content"
+                            android:layout_height="match_parent"
+                            android:contentDescription="@string/content_description_new_session"
+                            android:padding="4dp"
+                            android:text="⤢"
+                            android:textSize="12sp"
+                            android:tooltipText="Split Vertical" />
+
+                        <com.google.android.material.button.MaterialButton
+                            android:id="@+id/close_pane_button"
+                            style="@style/Widget.Termux.ToolbarButton"
+                            android:layout_width="wrap_content"
+                            android:layout_height="match_parent"
+                            android:contentDescription="@string/content_description_new_session"
+                            android:padding="4dp"
+                            android:text="✕"
+                            android:textSize="12sp"
+                            android:tooltipText="Close Pane" />
 
                         <com.google.android.material.button.MaterialButton
                             android:id="@+id/new_session_button"
