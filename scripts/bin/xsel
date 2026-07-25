@@ -1,0 +1,57 @@
+#!/data/data/com.termux/files/usr/bin/bash
+
+CONTENT_PROVIDER_URI="content://com.termux.app.clipboard"
+
+if [ -n "$DISPLAY" ] && command -v /usr/bin/xsel &>/dev/null; then
+    exec /usr/bin/xsel "$@"
+fi
+
+ACTION=""
+while [ $# -gt 0 ]; do
+    case "$1" in
+        -o|--output) ACTION="get" ;;
+        -i|--input)  ACTION="set" ;;
+        -c|--clear)  ACTION="clear" ;;
+        -b|--clipboard) ;;
+        -h|--help)
+            echo "Usage: xsel [-o|-i|-c|-b]"
+            echo "  -o, --output   Read clipboard to stdout"
+            echo "  -i, --input    Write stdin to clipboard"
+            echo "  -c, --clear    Clear clipboard"
+            echo "  -b, --clipboard Use clipboard selection (default)"
+            echo ""
+            echo "If X11 is detected, delegates to system xsel."
+            exit 0
+            ;;
+        *)
+            echo "xsel: unknown option: $1" >&2
+            exit 1
+            ;;
+    esac
+    shift
+done
+
+if [ -z "$ACTION" ]; then
+    ACTION="get"
+fi
+
+case "$ACTION" in
+    get)
+        content read --uri "${CONTENT_PROVIDER_URI}/get" 2>/dev/null | \
+            while IFS= read -r line; do
+                if [[ "$line" == "Row:"* ]] || [[ "$line" == "value" ]]; then
+                    continue
+                fi
+                echo "$line"
+            done
+        ;;
+    set)
+        INPUT=$(cat)
+        content write --uri "${CONTENT_PROVIDER_URI}/set" \
+            --bind text:s:"$INPUT" 2>/dev/null
+        ;;
+    clear)
+        content write --uri "${CONTENT_PROVIDER_URI}/set" \
+            --bind text:s:"" 2>/dev/null
+        ;;
+esac
