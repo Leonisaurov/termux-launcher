@@ -100,6 +100,7 @@ public class TermuxSplitLayout extends ViewGroup {
         terminalView.setId(View.generateViewId());
         addView(terminalView, new LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT));
         terminalView.requestFocus();
+        setupPaneFocusTracking(terminalView);
         requestLayout();
     }
 
@@ -135,6 +136,7 @@ public class TermuxSplitLayout extends ViewGroup {
         newTerminalView.post(() -> {
             newTerminalView.updateSize();
             newTerminalView.requestFocus();
+            setupPaneFocusTracking(newTerminalView);
             newTerminalView.invalidate();
         });
         mFocusedPaneIndex = mFocusedPaneIndex + 1;
@@ -279,6 +281,7 @@ public class TermuxSplitLayout extends ViewGroup {
             TerminalView tv = views.get(i);
             tv.setId(View.generateViewId());
             addView(tv, new LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT));
+            setupPaneFocusTracking(tv);
         }
 
         mFocusedPaneIndex = 0;
@@ -346,27 +349,8 @@ public class TermuxSplitLayout extends ViewGroup {
 
     @Override
     public boolean dispatchTouchEvent(MotionEvent ev) {
-        // On touch down, find which TerminalView was touched and update focus tracking
-        if (ev.getAction() == MotionEvent.ACTION_DOWN) {
-            float x = ev.getX();
-            float y = ev.getY();
-            for (int i = 0; i < getChildCount(); i++) {
-                View child = getChildAt(i);
-                if (child instanceof TerminalView && child.getVisibility() == VISIBLE) {
-                    android.graphics.Rect hitRect = new android.graphics.Rect();
-                    child.getHitRect(hitRect);
-                    if (hitRect.contains((int) x, (int) y)) {
-                        if (mFocusedPaneIndex != i) {
-                            mFocusedPaneIndex = i;
-                            // Don't call requestFocus here - let TerminalView.onSingleTapUp() do it
-                            // Just track the index for drawing
-                            invalidate();
-                        }
-                        break;
-                    }
-                }
-            }
-        }
+        // Let Android's natural touch dispatch handle focus via TerminalView.onSingleTapUp
+        // Focus tracking is done via OnFocusChangeListener
         return super.dispatchTouchEvent(ev);
     }
 
@@ -631,5 +615,26 @@ public class TermuxSplitLayout extends ViewGroup {
                 });
             }
         }
+    }
+
+    /**
+     * Setup focus change tracking on a TerminalView pane.
+     * When Android system focus changes to this view, update our internal tracking.
+     */
+    private void setupPaneFocusTracking(TerminalView view) {
+        view.setOnFocusChangeListener((v, hasFocus) -> {
+            if (hasFocus) {
+                for (int i = 0; i < getChildCount(); i++) {
+                    if (getChildAt(i) == v) {
+                        if (mFocusedPaneIndex != i) {
+                            mFocusedPaneIndex = i;
+                            notifyPaneFocused();
+                            invalidate();
+                        }
+                        break;
+                    }
+                }
+            }
+        });
     }
 }

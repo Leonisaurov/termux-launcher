@@ -7266,6 +7266,14 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
 
     public void termuxSessionListNotifyUpdated() {
         mTermuxSessionListViewController.notifyDataSetChanged();
+        // If we have multiple panes, check if the focused session has finished
+        if (mSplitLayout != null && mTermuxService != null) {
+            TerminalSession focusedSession = mSplitLayout.getFocusedSession();
+            if (focusedSession != null && !focusedSession.isRunning()) {
+                // Session finished, close its pane
+                closePaneForSession(focusedSession);
+            }
+        }
     }
 
     public boolean isVisible() {
@@ -7339,6 +7347,29 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
     }
 
     /**
+     * Close the pane that contains a specific session.
+     * Called when a session finishes (process exits).
+     */
+    public void closePaneForSession(TerminalSession session) {
+        if (mSplitLayout == null || session == null) return;
+        // Focus the pane with this session, then close it
+        for (int i = 0; i < mSplitLayout.getChildCount(); i++) {
+            View child = mSplitLayout.getChildAt(i);
+            if (child instanceof TerminalView) {
+                TerminalView tv = (TerminalView) child;
+                if (tv.getCurrentSession() == session) {
+                    mSplitLayout.setFocusedPaneIndex(i);
+                    if (mSplitLayout.getPaneCount() > 1) {
+                        mSplitLayout.closeFocusedPane();
+                        termuxSessionListNotifyUpdated();
+                    }
+                    break;
+                }
+            }
+        }
+    }
+
+    /**
      * Download the latest APK from GitHub Releases and trigger installation.
      * Constructs download URL directly from release tag (no gh CLI needed).
      */
@@ -7346,30 +7377,85 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
      * Download the latest APK from the nightly-split-latest release.
      * The URL is fixed and always points to the latest build.
      */
+    /**
+     * Download the latest APK from nightly-split-latest release.
+     * Shows a dialog with progress bar during download.
+     */
     private void downloadAndInstallUpdate() {
-        Toast.makeText(this, "⬇ Descargando última versión...", Toast.LENGTH_LONG).show();
+        // Create dialog
+        androidx.appcompat.app.AlertDialog.Builder builder = new androidx.appcompat.app.AlertDialog.Builder(this);
+        android.widget.LinearLayout layout = new android.widget.LinearLayout(this);
+        layout.setOrientation(android.widget.LinearLayout.VERTICAL);
+        layout.setPadding(40, 30, 40, 30);
+        
+        android.widget.TextView statusText = new android.widget.TextView(this);
+        statusText.setText("Preparing download...");
+        statusText.setTextSize(14);
+        layout.addView(statusText);
+        
+        android.widget.ProgressBar progressBar = new android.widget.ProgressBar(
+            this, null, android.R.attr.progressBarStyleHorizontal);
+        progressBar.setMax(100);
+        progressBar.setIndeterminate(false);
+        progressBar.setPadding(0, 20, 0, 20);
+        layout.addView(progressBar);
+        
+        android.widget.TextView sizeText = new android.widget.TextView(this);
+        sizeText.setText("");
+        sizeText.setTextSize(12);
+        sizeText.setTextAlignment(android.view.View.TEXT_ALIGNMENT_CENTER);
+        layout.addView(sizeText);
+        
+        builder.setTitle("⬇ Updating APK");
+        builder.setView(layout);
+        builder.setCancelable(false);
+        builder.setNegativeButton("Cancel", (dialog, which) -> {
+            // Can't cancel easily once started, just dismiss
+        });
+        
+        androidx.appcompat.app.AlertDialog dialog = builder.create();
+        dialog.show();
         
         new Thread(() -> {
             try {
                 String apkUrl = "https://github.com/Leonisaurov/termux-launcher/releases/download/nightly-split-latest/termux-app-split.apk";
-                String destPath = "/data/data/com.termux/files/usr/tmp/termux-split-update.apk";
                 
-                // Download APK
+                // First, get file size via HEAD request
+                java.net.URL headUrl = new java.net.URL(apkUrl);
+                java.net.HttpURLConnection headConn = (java.net.HttpURLConnection) headUrl.openConnection();
+                headConn.setRequestMethod("GET");
+                headConn.setRequestProperty("User-Agent", "Termux-Split-App");
+                headConn.setInstanceFollowRedirects(true);
+                headConn.connect();
+                
+                if (headConn.getResponseCode() != 200) {
+                    runOnUiThread(() -> {
+                        dialog.dismiss();
+                        showUpdateError("Download failed: HTTP " + headConn.getResponseCode());
+                    });
+                    headConn.disconnect();
+                    return;
+                }
+                
+                int totalSize = headConn.getContentLength();
+                headConn.disconnect();
+                
+                // Download to shared storage
+                String destDir = "/data/data/com.termux/files/home/storage/downloads";
+                String destPath = destDir + "/termux-split-update.apk";
+                
+                // Ensure directory exists
+                java.io.File dir = new java.io.File(destDir);
+                if (!dir.exists()) dir.mkdirs();
+                
                 java.net.URL url = new java.net.URL(apkUrl);
                 java.net.HttpURLConnection conn = (java.net.HttpURLConnection) url.openConnection();
                 conn.setRequestMethod("GET");
                 conn.setRequestProperty("User-Agent", "Termux-Split-App");
                 conn.setInstanceFollowRedirects(true);
                 conn.setConnectTimeout(15000);
-                conn.setReadTimeout(30000);
+                conn.setReadTimeout(60000);
                 conn.connect();
-                
-                int responseCode = conn.getResponseCode();
-                if (responseCode != 200) {
-                    showUpdateError("Download failed: HTTP " + responseCode
-                        + "\nURL: " + apkUrl);
-                    return;
-                }
                 
                 java.io.InputStream inputStream = conn.getInputStream();
                 java.io.FileOutputStream outputStream = new java.io.FileOutputStream(destPath);
@@ -7377,9 +7463,25 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
                 byte[] buffer = new byte[8192];
                 int bytesRead;
                 int totalRead = 0;
+                long lastUpdate = 0;
+                
                 while ((bytesRead = inputStream.read(buffer)) != -1) {
                     outputStream.write(buffer, 0, bytesRead);
                     totalRead += bytesRead;
+                    
+                    long now = System.currentTimeMillis();
+                    if (now - lastUpdate > 200) { // Update UI every 200ms
+                        lastUpdate = now;
+                        final int progress = totalSize > 0 ? (totalRead * 100 / totalSize) : 0;
+                        final int mbRead = totalRead / (1024 * 1024);
+                        final int mbTotal = totalSize / (1024 * 1024);
+                        
+                        runOnUiThread(() -> {
+                            statusText.setText("Downloading... " + progress + "%");
+                            progressBar.setProgress(progress);
+                            sizeText.setText(mbRead + " MB / " + mbTotal + " MB");
+                        });
+                    }
                 }
                 outputStream.close();
                 inputStream.close();
@@ -7387,21 +7489,31 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
                 
                 long sizeMb = totalRead / (1024 * 1024);
                 
-                runOnUiThread(() -> Toast.makeText(TermuxActivity.this,
-                    "✅ APK descargado (" + sizeMb + "MB). Abriendo instalador...",
-                    Toast.LENGTH_LONG).show());
+                // Update dialog to show completion
+                runOnUiThread(() -> {
+                    statusText.setText("✅ Downloaded (" + sizeMb + " MB)");
+                    progressBar.setProgress(100);
+                    sizeText.setText("Opening installer...");
+                });
                 
+                // Open Android package installer
                 Runtime.getRuntime().exec(new String[]{
                     "/data/data/com.termux/files/usr/bin/termux-open", destPath
                 });
                 
+                // Close dialog after a moment
+                Thread.sleep(1500);
+                runOnUiThread(() -> dialog.dismiss());
+                
             } catch (Exception e) {
-                showUpdateError("Error: " + e.getMessage()
-                    + "\n\nDescarga manual:\nhttps://github.com/Leonisaurov/termux-launcher/releases/latest");
+                runOnUiThread(() -> {
+                    dialog.dismiss();
+                    showUpdateError("Error: " + e.getMessage()
+                        + "\n\nManual download:\nhttps://github.com/Leonisaurov/termux-launcher/releases/latest");
+                });
             }
         }).start();
     }
-
     private void showUpdateError(String message) {
         runOnUiThread(() -> {
             new AlertDialog.Builder(TermuxActivity.this)
