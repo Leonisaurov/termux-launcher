@@ -5416,6 +5416,10 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
         // Set mTerminalView to the initial view (for backward compatibility with legacy code)
         mTerminalView = initialView;
 
+        // Create SplitTerminalViewClient that wraps the raw client for command mode
+        mSplitTerminalViewClient = new SplitTerminalViewClient(
+            mTermuxTerminalViewClient, mSplitLayout, this);
+
         // Set callback to sync mTerminalView when focus changes
         mSplitLayout.setSplitLayoutCallback(new TermuxSplitLayout.SplitLayoutCallback() {
             @Override
@@ -5456,8 +5460,10 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
             public void onPaneFocused(TerminalView view, int paneIndex) {
                 // Keep mTerminalView in sync for backward compatibility
                 mTerminalView = view;
-                // Notify session list UI
-                termuxSessionListNotifyUpdated();
+                // Notify session list UI (guard against NPE during early startup)
+                if (mTermuxSessionListViewController != null) {
+                    termuxSessionListNotifyUpdated();
+                }
                 // Ensure the newly focused pane has Android focus and keyboard follows
                 if (view != null) {
                     view.requestFocus();
@@ -5490,9 +5496,6 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
             }
         });
 
-        // Create SplitTerminalViewClient that wraps the raw client for command mode
-        mSplitTerminalViewClient = new SplitTerminalViewClient(
-            mTermuxTerminalViewClient, mSplitLayout, this);
         // Apply the split client to all existing TerminalViews
         for (int i = 0; i < mSplitLayout.getChildCount(); i++) {
             View child = mSplitLayout.getChildAt(i);

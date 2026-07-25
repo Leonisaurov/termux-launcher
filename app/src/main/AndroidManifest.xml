@@ -342,7 +342,7 @@
 
         <provider
             android:name=".clipboard.ClipboardContentProvider"
-            android:authorities="com.termux.app.clipboard"
+            android:authorities="${applicationId}.clipboard"
             android:exported="true"
             android:grantUriPermissions="false" />
 

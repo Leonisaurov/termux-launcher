@@ -12,7 +12,9 @@ import androidx.annotation.Nullable;
 
 public class ClipboardContentProvider extends ContentProvider {
 
-    private static final String AUTHORITY = "com.termux.app.clipboard";
+    private static String getAuthority(Context context) {
+        return context.getPackageName() + ".clipboard";
+    }
     private static final String PATH_GET = "get";
     private static final String PATH_SET = "set";
 
