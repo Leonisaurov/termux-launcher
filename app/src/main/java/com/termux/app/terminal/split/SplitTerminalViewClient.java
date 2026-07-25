@@ -182,7 +182,20 @@ public class SplitTerminalViewClient implements TerminalViewClient {
 
     @Override
     public void onSingleTapUp(MotionEvent e) {
+        // Update split layout focus to this view before delegating
+        TerminalView thisView = getTerminalViewForCall();
+        if (thisView != null && mSplitLayout != null) {
+            mSplitLayout.setFocusedPaneForView(thisView);
+        }
         mDelegate.onSingleTapUp(e);
+    }
+    
+    private TerminalView getTerminalViewForCall() {
+        // This method is called from TerminalView.onSingleTapUp which sets the view field
+        // before calling mClient. We need to find which TerminalView is calling us.
+        // Since TerminalView.onSingleTapUp calls requestFocus() first, then mClient,
+        // the focused view should be the one calling.
+        return mSplitLayout.getFocusedTerminalView();
     }
 
     @Override

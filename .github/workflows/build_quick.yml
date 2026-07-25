@@ -115,14 +115,32 @@ jobs:
           if-no-files-found: error
 
       - name: Upload APK to GitHub Release
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: nightly-split-${{ github.sha }}
-          name: "Nightly Split ${{ github.sha }}"
-          body: |
-            APK del último build de la rama ${{ github.ref_name }}.
-            Build #${{ github.run_number }} - ${{ github.sha }}
-          files: ${{ env.APK_DIR_PATH }}/termux-app-split.apk
-          draft: false
-          prerelease: true
-          fail_on_unmatched_files: false
+        shell: bash
+        run: |
+          # Create/update a moving tag "nightly-split-latest"
+          git config user.email "actions@github.com"
+          git config user.name "GitHub Actions"
+          
+          # Delete old tag locally and remotely (ignore errors if not exists)
+          git tag -d nightly-split-latest 2>/dev/null || true
+          git push origin :refs/tags/nightly-split-latest 2>/dev/null || true
+          
+          # Create new tag
+          git tag nightly-split-latest "${{ github.sha }}"
+          git push origin nightly-split-latest
+          
+          # Create/update release using gh CLI (pre-installed in Actions)
+          gh release create nightly-split-latest \
+            "${{ env.APK_DIR_PATH }}/termux-app-split.apk#termux-app-split.apk" \
+            --repo ${{ github.repository }} \
+            --title "Nightly Split (latest)" \
+            --notes "Latest APK from ${{ github.ref_name }} branch. Build #${{ github.run_number }} - ${{ github.sha }}" \
+            --prerelease \
+            --latest=false \
+            || gh release upload nightly-split-latest \
+              "${{ env.APK_DIR_PATH }}/termux-app-split.apk#termux-app-split.apk" \
+              --repo ${{ github.repository }} \
+              --clobber \
+            || true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

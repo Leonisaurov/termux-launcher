@@ -7342,90 +7342,36 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
      * Download the latest APK from GitHub Releases and trigger installation.
      * Constructs download URL directly from release tag (no gh CLI needed).
      */
+    /**
+     * Download the latest APK from the nightly-split-latest release.
+     * The URL is fixed and always points to the latest build.
+     */
     private void downloadAndInstallUpdate() {
-        Toast.makeText(this, "⬇ Buscando última versión...", Toast.LENGTH_LONG).show();
+        Toast.makeText(this, "⬇ Descargando última versión...", Toast.LENGTH_LONG).show();
         
         new Thread(() -> {
             try {
-                String repo = "Leonisaurov/termux-launcher";
-                String apiUrl = "https://api.github.com/repos/" + repo + "/releases?per_page=10";
+                String apkUrl = "https://github.com/Leonisaurov/termux-launcher/releases/download/nightly-split-latest/termux-app-split.apk";
+                String destPath = "/data/data/com.termux/files/usr/tmp/termux-split-update.apk";
                 
-                // Step 1: Fetch latest releases via GitHub API
-                java.net.URL url = new java.net.URL(apiUrl);
+                // Download APK
+                java.net.URL url = new java.net.URL(apkUrl);
                 java.net.HttpURLConnection conn = (java.net.HttpURLConnection) url.openConnection();
                 conn.setRequestMethod("GET");
-                conn.setRequestProperty("Accept", "application/vnd.github+json");
                 conn.setRequestProperty("User-Agent", "Termux-Split-App");
+                conn.setInstanceFollowRedirects(true);
+                conn.setConnectTimeout(15000);
+                conn.setReadTimeout(30000);
                 conn.connect();
                 
                 int responseCode = conn.getResponseCode();
                 if (responseCode != 200) {
-                    showUpdateError("Error fetching releases: HTTP " + responseCode);
-                    return;
-                }
-                
-                // Read JSON response
-                java.io.BufferedReader br = new java.io.BufferedReader(
-                    new java.io.InputStreamReader(conn.getInputStream()));
-                StringBuilder jsonResponse = new StringBuilder();
-                String line;
-                while ((line = br.readLine()) != null) {
-                    jsonResponse.append(line);
-                }
-                br.close();
-                conn.disconnect();
-                
-                String json = jsonResponse.toString();
-                
-                // Step 2: Find the latest nightly-split tag
-                String tagName = null;
-                int idx = 0;
-                while ((idx = json.indexOf("\"tag_name\"", idx)) != -1) {
-                    int valueStart = json.indexOf("\"", idx + 10) + 1;
-                    int valueEnd = json.indexOf("\"", valueStart);
-                    String tag = json.substring(valueStart, valueEnd);
-                    
-                    if (tag.startsWith("nightly-split-")) {
-                        tagName = tag;
-                        break;
-                    }
-                    idx = valueEnd + 1;
-                }
-                
-                if (tagName == null) {
-                    showUpdateError("No nightly-split releases found.\n" +
-                        "Run a workflow build first, or download from:\n" +
-                        "https://github.com/" + repo + "/releases");
-                    return;
-                }
-                
-                // Step 3: Construct download URL directly
-                String apkUrl = "https://github.com/" + repo + "/releases/download/"
-                    + tagName + "/termux-app-split.apk";
-                
-                final String fTagName = tagName;
-                runOnUiThread(() -> Toast.makeText(TermuxActivity.this,
-                    "📦 Descargando: " + fTagName, Toast.LENGTH_SHORT).show());
-                
-                // Step 4: Download the APK
-                java.net.URL apkUrl2 = new java.net.URL(apkUrl);
-                java.net.HttpURLConnection conn2 = (java.net.HttpURLConnection) apkUrl2.openConnection();
-                conn2.setRequestMethod("GET");
-                conn2.setRequestProperty("User-Agent", "Termux-Split-App");
-                conn2.setInstanceFollowRedirects(true);
-                conn2.connect();
-                
-                int responseCode2 = conn2.getResponseCode();
-                if (responseCode2 != 200) {
-                    showUpdateError("Download failed: HTTP " + responseCode2
+                    showUpdateError("Download failed: HTTP " + responseCode
                         + "\nURL: " + apkUrl);
                     return;
                 }
                 
-                int fileSize = conn2.getContentLength();
-                String destPath = "/data/data/com.termux/files/usr/tmp/termux-split-update.apk";
-                
-                java.io.InputStream inputStream = conn2.getInputStream();
+                java.io.InputStream inputStream = conn.getInputStream();
                 java.io.FileOutputStream outputStream = new java.io.FileOutputStream(destPath);
                 
                 byte[] buffer = new byte[8192];
@@ -7437,11 +7383,10 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
                 }
                 outputStream.close();
                 inputStream.close();
-                conn2.disconnect();
+                conn.disconnect();
                 
                 long sizeMb = totalRead / (1024 * 1024);
                 
-                // Step 5: Open with Android package installer
                 runOnUiThread(() -> Toast.makeText(TermuxActivity.this,
                     "✅ APK descargado (" + sizeMb + "MB). Abriendo instalador...",
                     Toast.LENGTH_LONG).show());
@@ -7451,7 +7396,8 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
                 });
                 
             } catch (Exception e) {
-                showUpdateError("Error: " + e.getMessage());
+                showUpdateError("Error: " + e.getMessage()
+                    + "\n\nDescarga manual:\nhttps://github.com/Leonisaurov/termux-launcher/releases/latest");
             }
         }).start();
     }

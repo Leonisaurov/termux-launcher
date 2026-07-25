@@ -254,6 +254,22 @@ public class TermuxSplitLayout extends ViewGroup {
         }
     }
 
+    /**
+     * Set the focused pane index based on which TerminalView is active.
+     * Called when a TerminalView receives a touch event to ensure focus tracking.
+     */
+    public void setFocusedPaneForView(TerminalView view) {
+        for (int i = 0; i < getChildCount(); i++) {
+            View child = getChildAt(i);
+            if (child == view && mFocusedPaneIndex != i) {
+                mFocusedPaneIndex = i;
+                notifyPaneFocused();
+                invalidate();
+                break;
+            }
+        }
+    }
+
     public void restoreFromNode(SplitNode root, List<TerminalView> views) {
         removeAllViews();
         mRootNode = root;
@@ -330,11 +346,11 @@ public class TermuxSplitLayout extends ViewGroup {
 
     @Override
     public boolean dispatchTouchEvent(MotionEvent ev) {
+        // On touch down, find which TerminalView was touched and update focus tracking
         if (ev.getAction() == MotionEvent.ACTION_DOWN) {
             float x = ev.getX();
             float y = ev.getY();
-            int childCount = getChildCount();
-            for (int i = 0; i < childCount; i++) {
+            for (int i = 0; i < getChildCount(); i++) {
                 View child = getChildAt(i);
                 if (child instanceof TerminalView && child.getVisibility() == VISIBLE) {
                     android.graphics.Rect hitRect = new android.graphics.Rect();
@@ -342,8 +358,8 @@ public class TermuxSplitLayout extends ViewGroup {
                     if (hitRect.contains((int) x, (int) y)) {
                         if (mFocusedPaneIndex != i) {
                             mFocusedPaneIndex = i;
-                            child.post(() -> child.requestFocus());
-                            notifyPaneFocused();
+                            // Don't call requestFocus here - let TerminalView.onSingleTapUp() do it
+                            // Just track the index for drawing
                             invalidate();
                         }
                         break;
