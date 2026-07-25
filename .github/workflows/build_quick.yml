@@ -117,12 +117,23 @@ jobs:
       - name: Upload APK to GitHub Release
         shell: bash
         run: |
+          echo "🧹 Cleaning up old nightly-split tags..."
+          # Delete all old nightly-split-* tags (with sha) leaving only nightly-split-latest
+          for tag in $(gh release list --repo ${{ github.repository }} --limit 50 --json tagName --jq '.[].tagName' 2>/dev/null | grep 'nightly-split-' | grep -v 'nightly-split-latest' || true); do
+            echo "  Deleting old: $tag"
+            gh release delete "$tag" --yes 2>/dev/null || true
+            git push origin ":refs/tags/$tag" 2>/dev/null || true
+          done
+
           echo "🗑️ Deleting old release and tag..."
           # Delete existing release (ignore errors if it doesn't exist)
           gh release delete nightly-split-latest --yes 2>/dev/null || echo "No old release to delete"
           # Delete existing tag locally and remotely
           git tag -d nightly-split-latest 2>/dev/null || true
           git push origin :refs/tags/nightly-split-latest 2>/dev/null || true
+
+          # Clean local tags too
+          git tag -l 'nightly-split-*' | grep -v 'nightly-split-latest' | xargs -r git tag -d 2>/dev/null || true
           
           echo "🏷️ Creating new tag and release..."
           # Create new tag

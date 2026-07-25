@@ -7420,10 +7420,8 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
                 String destDir = "/data/data/com.termux/files/home/storage/downloads";
                 String destPath = destDir + "/termux-split-update.apk";
                 
-                // Ensure directory exists
                 new java.io.File(destDir).mkdirs();
                 
-                // Download APK with progress tracking
                 java.net.URL url = new java.net.URL(apkUrl);
                 java.net.HttpURLConnection conn = (java.net.HttpURLConnection) url.openConnection();
                 conn.setRequestMethod("GET");
@@ -7452,6 +7450,14 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
                 int bytesRead;
                 int totalRead = 0;
                 long lastUpdate = 0;
+                boolean unknownSize = (totalSize <= 0);
+                
+                if (unknownSize) {
+                    runOnUiThread(() -> {
+                        progressBar.setIndeterminate(true);
+                        sizeText.setText("Size unknown, downloading...");
+                    });
+                }
                 
                 while ((bytesRead = inputStream.read(buffer)) != -1) {
                     outputStream.write(buffer, 0, bytesRead);
@@ -7460,14 +7466,22 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
                     long now = System.currentTimeMillis();
                     if (now - lastUpdate > 150) {
                         lastUpdate = now;
-                        final int pct = totalSize > 0 ? (totalRead * 100 / totalSize) : 0;
-                        final int readMb = totalRead / (1024 * 1024);
-                        final int totalMb = totalSize / (1024 * 1024);
-                        runOnUiThread(() -> {
-                            statusText.setText("Downloading... " + pct + "%");
-                            progressBar.setProgress(pct);
-                            sizeText.setText(readMb + " MB / " + totalMb + " MB");
-                        });
+                        if (unknownSize) {
+                            final int readMb = totalRead / (1024 * 1024);
+                            runOnUiThread(() -> {
+                                statusText.setText("Downloading... " + readMb + " MB");
+                                sizeText.setText(readMb + " MB received");
+                            });
+                        } else {
+                            final int pct = Math.min(100, totalRead * 100 / Math.max(1, totalSize));
+                            final int readMb = totalRead / (1024 * 1024);
+                            final int totalMb = totalSize / (1024 * 1024);
+                            runOnUiThread(() -> {
+                                statusText.setText("Downloading... " + pct + "%");
+                                progressBar.setProgress(pct);
+                                sizeText.setText(readMb + " MB / " + totalMb + " MB");
+                            });
+                        }
                     }
                 }
                 outputStream.close();
@@ -7478,13 +7492,52 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
                 
                 runOnUiThread(() -> {
                     statusText.setText("✅ Downloaded (" + finalSize + " MB)");
+                    progressBar.setIndeterminate(false);
                     progressBar.setProgress(100);
                     sizeText.setText("Opening installer...");
                 });
                 
-                // Open Android package installer
-                Runtime.getRuntime().exec(new String[]{
-                    "/data/data/com.termux/files/usr/bin/termux-open", destPath
+                // Try multiple methods to open the APK installer
+                boolean installed = false;
+                
+                // Method 1: termux-open (requires termux-api)
+                try {
+                    Process p1 = Runtime.getRuntime().exec(new String[]{
+                        "/data/data/com.termux/files/usr/bin/termux-open", destPath
+                    });
+                    int ret1 = p1.waitFor();
+                    if (ret1 == 0) installed = true;
+                } catch (Exception e) { /* fall through */ }
+                
+                // Method 2: am start with content URI (no root required)
+                if (!installed) {
+                    try {
+                        Runtime.getRuntime().exec(new String[]{
+                            "am", "start", "-a", "android.intent.action.VIEW",
+                            "-d", "file://" + destPath,
+                            "-t", "application/vnd.android.package-archive"
+                        });
+                        installed = true;
+                    } catch (Exception e) { /* fall through */ }
+                }
+                
+                // Method 3: pm install (requires root or system权限)
+                if (!installed) {
+                    try {
+                        Runtime.getRuntime().exec(new String[]{
+                            "pm", "install", "-r", destPath
+                        });
+                    } catch (Exception e) { /* fall through */ }
+                }
+                
+                final boolean success = installed;
+                runOnUiThread(() -> {
+                    if (success) {
+                        sizeText.setText("Installer launched ✓");
+                    } else {
+                        statusText.setText("⚠️ Manual install required");
+                        sizeText.setText("APK saved to Downloads folder.\nOpen it manually to install.");
+                    }
                 });
                 
                 Thread.sleep(2000);
