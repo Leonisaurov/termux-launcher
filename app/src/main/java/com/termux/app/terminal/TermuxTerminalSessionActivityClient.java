@@ -389,7 +389,7 @@ public class TermuxTerminalSessionActivityClient extends TermuxTerminalSessionCl
         if (service == null) return;
         
         // In split mode, create a new pane instead of replacing current session
-        if (mActivity.getSplitLayout() != null && mActivity.getSplitLayout().getPaneCount() >= 1) {
+        if (mActivity.getSplitLayout() != null && mActivity.getSplitLayout().getPaneCount() > 1) {
             mActivity.splitVertical();
             return;
         }

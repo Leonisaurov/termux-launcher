@@ -7492,60 +7492,79 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
                 inputStream.close();
                 conn.disconnect();
                 
-                final long finalSize = totalRead / (1024 * 1024);
-                
-                runOnUiThread(() -> {
-                    statusText.setText("✅ Downloaded (" + finalSize + " MB)");
-                    progressBar.setIndeterminate(false);
-                    progressBar.setProgress(100);
-                    sizeText.setText("Opening installer...");
-                });
-                
-                // Try multiple methods to open the APK installer
-                boolean installed = false;
-                
-                // Method 1: termux-open (requires termux-api)
-                try {
-                    Process p1 = Runtime.getRuntime().exec(new String[]{
-                        "/data/data/com.termux/files/usr/bin/termux-open", destPath
+                File destFile = new File(destPath);
+
+                if (!destFile.exists() || destFile.length() == 0) {
+                    runOnUiThread(() -> {
+                        if (dialog.isShowing()) dialog.dismiss();
+                        new android.app.AlertDialog.Builder(TermuxActivity.this)
+                            .setTitle("Download Failed")
+                            .setMessage("Downloaded file is empty or missing.")
+                            .setPositiveButton(android.R.string.ok, null)
+                            .show();
                     });
-                    int ret1 = p1.waitFor();
-                    if (ret1 == 0) installed = true;
-                } catch (Exception e) { /* fall through */ }
-                
-                // Method 2: am start with content URI (no root required)
-                if (!installed) {
+                    return;
+                }
+
+                // Install using FileProvider with content:// URI
+                try {
+                    Uri apkUri = FileProvider.getUriForFile(
+                        TermuxActivity.this,
+                        getPackageName() + ".fileProvider",
+                        destFile
+                    );
+
+                    Intent installIntent = new Intent(Intent.ACTION_VIEW);
+                    installIntent.setDataAndType(apkUri, "application/vnd.android.package-archive");
+                    installIntent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                    installIntent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+
+                    startActivity(installIntent);
+
+                    runOnUiThread(() -> {
+                        if (dialog.isShowing()) dialog.dismiss();
+                        new android.app.AlertDialog.Builder(TermuxActivity.this)
+                            .setTitle("Update Downloaded")
+                            .setMessage("APK saved. Follow the installer prompts to complete installation.")
+                            .setPositiveButton(android.R.string.ok, null)
+                            .show();
+                    });
+                } catch (Exception e) {
+                    // Fallback: try am start with content:// URI
                     try {
-                        Runtime.getRuntime().exec(new String[]{
+                        Uri apkUri = FileProvider.getUriForFile(
+                            TermuxActivity.this,
+                            getPackageName() + ".fileProvider",
+                            destFile
+                        );
+
+                        Process p = Runtime.getRuntime().exec(new String[]{
                             "am", "start", "-a", "android.intent.action.VIEW",
-                            "-d", "file://" + destPath,
-                            "-t", "application/vnd.android.package-archive"
+                            "-d", apkUri.toString(),
+                            "-t", "application/vnd.android.package-archive",
+                            "--grant-read-uri-permission"
                         });
-                        installed = true;
-                    } catch (Exception e) { /* fall through */ }
-                }
-                
-                // Method 3: pm install (requires root or system权限)
-                if (!installed) {
-                    try {
-                        Runtime.getRuntime().exec(new String[]{
-                            "pm", "install", "-r", destPath
+                        p.waitFor();
+
+                        runOnUiThread(() -> {
+                            if (dialog.isShowing()) dialog.dismiss();
+                            new android.app.AlertDialog.Builder(TermuxActivity.this)
+                                .setTitle("Update Downloaded")
+                                .setMessage("APK saved. Follow the installer prompts to complete installation.")
+                                .setPositiveButton(android.R.string.ok, null)
+                                .show();
                         });
-                    } catch (Exception e) { /* fall through */ }
-                }
-                
-                final boolean success = installed;
-                runOnUiThread(() -> {
-                    if (success) {
-                        sizeText.setText("Installer launched ✓");
-                    } else {
-                        statusText.setText("⚠️ Manual install required");
-                        sizeText.setText("APK saved to Downloads folder.\nOpen it manually to install.");
+                    } catch (Exception e2) {
+                        runOnUiThread(() -> {
+                            if (dialog.isShowing()) dialog.dismiss();
+                            new android.app.AlertDialog.Builder(TermuxActivity.this)
+                                .setTitle("Install Failed")
+                                .setMessage("Cannot open installer. APK saved to: " + destPath + "\n\nOpen it manually to install.")
+                                .setPositiveButton(android.R.string.ok, null)
+                                .show();
+                        });
                     }
-                });
-                
-                Thread.sleep(2000);
-                runOnUiThread(() -> dialog.dismiss());
+                }
                 
             } catch (Exception e) {
                 runOnUiThread(() -> {
