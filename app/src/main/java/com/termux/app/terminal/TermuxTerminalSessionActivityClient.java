@@ -389,7 +389,26 @@ public class TermuxTerminalSessionActivityClient extends TermuxTerminalSessionCl
         if (service == null) return;
         
         if (mActivity.getSplitLayout() != null && mActivity.getSplitLayout().getPaneCount() > 1) {
-            mActivity.splitVertical();
+            if (service.getTermuxSessionsSize() >= MAX_SESSIONS) {
+                new AlertDialog.Builder(mActivity)
+                    .setTitle(R.string.title_max_terminals_reached)
+                    .setMessage(R.string.msg_max_terminals_reached)
+                    .setPositiveButton(android.R.string.ok, null).show();
+                return;
+            }
+            TerminalSession currentSession = mActivity.getCurrentSession();
+            String workingDirectory;
+            if (currentSession == null) {
+                workingDirectory = mActivity.getProperties().getDefaultWorkingDirectory();
+            } else {
+                workingDirectory = currentSession.getCwd();
+            }
+            TermuxSession newTermuxSession = service.createTermuxSession(
+                null, null, null, workingDirectory, isFailSafe, sessionName);
+            if (newTermuxSession == null) return;
+            TerminalSession newTerminalSession = newTermuxSession.getTerminalSession();
+            setCurrentSession(newTerminalSession);
+            mActivity.getDrawer().closeDrawers();
             return;
         }
         
