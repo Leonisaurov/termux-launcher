@@ -5391,6 +5391,8 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
                 TerminalView newView = new TerminalView(TermuxActivity.this, null);
                 // All TerminalViews use the SplitTerminalViewClient wrapper
                 newView.setTerminalViewClient(mSplitTerminalViewClient);
+                // Initialize TerminalRenderer before attachSession to prevent NPE in updateSize()
+                newView.setTextSize(mPreferences.getFontSize());
                 // Create a new session and attach it to the new TerminalView
                 if (mTermuxService != null) {
                     String workingDir = getCurrentSession() != null ? getCurrentSession().getCwd() : null;
