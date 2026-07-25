@@ -42,6 +42,8 @@ public class TermuxSplitLayout extends ViewGroup {
 
     private SplitNode mRootNode;
     private int mFocusedPaneIndex;
+    /** Flag to prevent focus loops when setupPaneFocusTracking triggers notifyPaneFocused */
+    private boolean mSuppressFocusRequest = false;
     private SplitLayoutCallback mCallback;
 
     private boolean mIsDraggingDivider;
@@ -197,6 +199,11 @@ public class TermuxSplitLayout extends ViewGroup {
         mFocusedPaneIndex = (mFocusedPaneIndex + 1) % count;
         invalidate();
         notifyPaneFocused();
+        // Move Android focus to the new pane so IME follows
+        TerminalView focused = getFocusedTerminalView();
+        if (focused != null) {
+            focused.requestFocus();
+        }
     }
 
     public void focusPrevious() {
@@ -205,6 +212,11 @@ public class TermuxSplitLayout extends ViewGroup {
         mFocusedPaneIndex = (mFocusedPaneIndex - 1 + count) % count;
         invalidate();
         notifyPaneFocused();
+        // Move Android focus to the new pane so IME follows
+        TerminalView focused = getFocusedTerminalView();
+        if (focused != null) {
+            focused.requestFocus();
+        }
     }
 
     public void resizeFocusedPane(int deltaX, int deltaY) {
@@ -246,6 +258,11 @@ public class TermuxSplitLayout extends ViewGroup {
             mFocusedPaneIndex = index;
             invalidate();
             notifyPaneFocused();
+            // Move Android focus to the new pane so IME follows
+            TerminalView focused = getFocusedTerminalView();
+            if (focused != null) {
+                focused.requestFocus();
+            }
         }
     }
 
@@ -619,8 +636,9 @@ public class TermuxSplitLayout extends ViewGroup {
             mCallback.onPaneFocused(focusedView, mFocusedPaneIndex);
             if (focusedView != null) {
                 focusedView.post(() -> {
-                    // Don't call requestFocus() here - the TerminalView already does it
-                    // in onSingleTapUp(). Calling it again can cause focus loops.
+                    if (!mSuppressFocusRequest && !focusedView.hasFocus()) {
+                        focusedView.requestFocus();
+                    }
                     focusedView.invalidate();
                 });
             }
@@ -638,7 +656,10 @@ public class TermuxSplitLayout extends ViewGroup {
                     if (getChildAt(i) == v) {
                         if (mFocusedPaneIndex != i) {
                             mFocusedPaneIndex = i;
+                            // Suppress requestFocus since Android focus just changed TO us
+                            mSuppressFocusRequest = true;
                             notifyPaneFocused();
+                            mSuppressFocusRequest = false;
                             invalidate();
                         }
                         break;

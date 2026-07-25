@@ -1,6 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <paths>
+    <!-- Maps to Context.getFilesDir() = /data/data/com.termux/files/
+         The APK download path is /data/data/com.termux/files/home/storage/downloads/ -->
     <files-path
         name="downloads"
-        path="storage/downloads/" />
+        path="home/storage/downloads/" />
 </paths>

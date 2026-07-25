@@ -7506,9 +7506,29 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
                     return;
                 }
 
+                // Check if user has granted install permission
+                if (!getPackageManager().canRequestPackageInstalls()) {
+                    runOnUiThread(() -> {
+                        if (dialog.isShowing()) dialog.dismiss();
+                        new android.app.AlertDialog.Builder(this)
+                            .setTitle("Permission Required")
+                            .setMessage("To install this update, you need to allow app installations from this source.\n\nYou'll be redirected to Settings.")
+                            .setPositiveButton("Open Settings", (d, w) -> {
+                                Intent settingsIntent = new Intent(
+                                    android.provider.Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES,
+                                    android.net.Uri.parse("package:" + getPackageName())
+                                );
+                                startActivity(settingsIntent);
+                            })
+                            .setNegativeButton("Cancel", null)
+                            .show();
+                    });
+                    return;
+                }
+
                 // Install using FileProvider with content:// URI
                 try {
-                    Uri apkUri = FileProvider.getUriForFile(
+                    Uri apkUri = androidx.core.content.FileProvider.getUriForFile(
                         TermuxActivity.this,
                         getPackageName() + ".fileProvider",
                         destFile
@@ -7523,47 +7543,21 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
 
                     runOnUiThread(() -> {
                         if (dialog.isShowing()) dialog.dismiss();
-                        new android.app.AlertDialog.Builder(TermuxActivity.this)
+                        new android.app.AlertDialog.Builder(this)
                             .setTitle("Update Downloaded")
-                            .setMessage("APK saved. Follow the installer prompts to complete installation.")
+                            .setMessage("Follow the installer prompts to complete installation.")
                             .setPositiveButton(android.R.string.ok, null)
                             .show();
                     });
                 } catch (Exception e) {
-                    // Fallback: try am start with content:// URI
-                    try {
-                        Uri apkUri = FileProvider.getUriForFile(
-                            TermuxActivity.this,
-                            getPackageName() + ".fileProvider",
-                            destFile
-                        );
-
-                        Process p = Runtime.getRuntime().exec(new String[]{
-                            "am", "start", "-a", "android.intent.action.VIEW",
-                            "-d", apkUri.toString(),
-                            "-t", "application/vnd.android.package-archive",
-                            "--grant-read-uri-permission"
-                        });
-                        p.waitFor();
-
-                        runOnUiThread(() -> {
-                            if (dialog.isShowing()) dialog.dismiss();
-                            new android.app.AlertDialog.Builder(TermuxActivity.this)
-                                .setTitle("Update Downloaded")
-                                .setMessage("APK saved. Follow the installer prompts to complete installation.")
-                                .setPositiveButton(android.R.string.ok, null)
-                                .show();
-                        });
-                    } catch (Exception e2) {
-                        runOnUiThread(() -> {
-                            if (dialog.isShowing()) dialog.dismiss();
-                            new android.app.AlertDialog.Builder(TermuxActivity.this)
-                                .setTitle("Install Failed")
-                                .setMessage("Cannot open installer. APK saved to: " + destPath + "\n\nOpen it manually to install.")
-                                .setPositiveButton(android.R.string.ok, null)
-                                .show();
-                        });
-                    }
+                    runOnUiThread(() -> {
+                        if (dialog.isShowing()) dialog.dismiss();
+                        new android.app.AlertDialog.Builder(this)
+                            .setTitle("Install Failed")
+                            .setMessage("Cannot open installer: " + e.getMessage() + "\n\nAPK saved to: " + destPath)
+                            .setPositiveButton(android.R.string.ok, null)
+                            .show();
+                    });
                 }
                 
             } catch (Exception e) {
