@@ -69,23 +69,28 @@ public class SplitTerminalViewClient implements TerminalViewClient {
             case KeyEvent.KEYCODE_APOSTROPHE:
                 if (e.isShiftPressed()) {
                     mSplitLayout.splitFocusedPane(BranchNode.Orientation.VERTICAL);
+                    mActivity.termuxSessionListNotifyUpdated();
                     return true;
                 }
                 break;
             case KeyEvent.KEYCODE_5:
                 if (e.isShiftPressed()) {
                     mSplitLayout.splitFocusedPane(BranchNode.Orientation.HORIZONTAL);
+                    mActivity.termuxSessionListNotifyUpdated();
                     return true;
                 }
                 break;
             case KeyEvent.KEYCODE_O:
                 mSplitLayout.focusNext();
+                mActivity.termuxSessionListNotifyUpdated();
                 return true;
             case KeyEvent.KEYCODE_SEMICOLON:
                 mSplitLayout.focusPrevious();
+                mActivity.termuxSessionListNotifyUpdated();
                 return true;
             case KeyEvent.KEYCODE_X:
                 mSplitLayout.closeFocusedPane();
+                mActivity.termuxSessionListNotifyUpdated();
                 return true;
             case KeyEvent.KEYCODE_Z:
                 toggleZoomPane();
@@ -131,20 +136,25 @@ public class SplitTerminalViewClient implements TerminalViewClient {
         switch (codePoint) {
             case '"':
                 mSplitLayout.splitFocusedPane(BranchNode.Orientation.VERTICAL);
+                mActivity.termuxSessionListNotifyUpdated();
                 return true;
             case '%':
                 mSplitLayout.splitFocusedPane(BranchNode.Orientation.HORIZONTAL);
+                mActivity.termuxSessionListNotifyUpdated();
                 return true;
             case 'o':
             case 'O':
                 mSplitLayout.focusNext();
+                mActivity.termuxSessionListNotifyUpdated();
                 return true;
             case ';':
                 mSplitLayout.focusPrevious();
+                mActivity.termuxSessionListNotifyUpdated();
                 return true;
             case 'x':
             case 'X':
                 mSplitLayout.closeFocusedPane();
+                mActivity.termuxSessionListNotifyUpdated();
                 return true;
             case 'z':
             case 'Z':
@@ -157,13 +167,21 @@ public class SplitTerminalViewClient implements TerminalViewClient {
     }
 
     private void toggleZoomPane() {
-        if (mSplitLayout.getPaneCount() <= 1) return;
-        int targetIndex = mSplitLayout.getFocusedPaneIndex();
-        while (mSplitLayout.getPaneCount() > 1) {
-            if (mSplitLayout.getFocusedPaneIndex() == targetIndex) {
-                mSplitLayout.focusNext();
+        if (mSplitLayout == null || mSplitLayout.getPaneCount() <= 1) return;
+
+        TerminalView targetView = mSplitLayout.getFocusedTerminalView();
+        if (targetView == null) return;
+
+        for (int i = mSplitLayout.getPaneCount() - 1; i >= 0; i--) {
+            TerminalView pane = mSplitLayout.getTerminalViewByOrder(i);
+            if (pane != null && pane != targetView) {
+                mSplitLayout.setFocusedPaneIndex(i);
+                mSplitLayout.closeFocusedPane();
             }
-            mSplitLayout.closeFocusedPane();
+        }
+
+        if (mActivity != null) {
+            mActivity.termuxSessionListNotifyUpdated();
         }
     }
 

@@ -110,6 +110,7 @@ public class TermuxSplitLayout extends ViewGroup implements View.OnDragListener 
     }
 
     public void splitFocusedPane(BranchNode.Orientation orientation) {
+        if (getPaneCount() >= MAX_PANES) return;
         LeafNode focusedLeaf = findLeafAt(mRootNode, mFocusedPaneIndex, new int[]{0});
         if (focusedLeaf == null) return;
         if (mCallback == null) return;
@@ -734,9 +735,19 @@ public class TermuxSplitLayout extends ViewGroup implements View.OnDragListener 
 
     private boolean handleDrop(DragEvent event) {
         if (getPaneCount() >= MAX_PANES) return false;
+        if (mPaneRects == null || mPaneRects.isEmpty()) return false;
 
         float dropX = event.getX();
         float dropY = event.getY();
+
+        // Find which pane was the drop target based on coordinates
+        for (int i = 0; i < mPaneRects.size() && i < getPaneCount(); i++) {
+            Rect paneRect = mPaneRects.get(i);
+            if (paneRect != null && paneRect.contains((int) dropX, (int) dropY)) {
+                mFocusedPaneIndex = i;
+                break;
+            }
+        }
 
         BranchNode.Orientation orientation = determineDropOrientation(dropX, dropY);
         splitFocusedPane(orientation);

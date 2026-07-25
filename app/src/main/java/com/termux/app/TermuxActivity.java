@@ -3937,6 +3937,19 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
         clearCachedAccessoryWallpaperBlur();
         if (mIsInvalidState)
             return;
+
+        // Clean up standalone view
+        if (mStandaloneView != null) {
+            ViewGroup parent = (ViewGroup) mStandaloneView.getParent();
+            if (parent != null) parent.removeView(mStandaloneView);
+            mStandaloneView = null;
+        }
+
+        // Clean up split layout views
+        if (mSplitLayout != null) {
+            mSplitLayout.getViewToLeafMap().clear();
+        }
+
         if (mInAppKeyboard != null) {
             mTermuxTerminalViewClient.setInAppKeyboardController(null);
             mInAppKeyboard.onDestroy();
@@ -5528,10 +5541,12 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
         mStandaloneView.attachSession(session);
 
         // Clear focus from split layout and update legacy reference
-        mSplitLayout.clearFocus();
+        if (mSplitLayout != null) {
+            mSplitLayout.clearFocus();
+            mSplitLayout.setVisibility(View.GONE);
+        }
         mTerminalView = mStandaloneView;
 
-        mSplitLayout.setVisibility(View.GONE);
         mStandaloneView.setVisibility(View.VISIBLE);
 
         // Force layout pass on the parent container
@@ -5553,9 +5568,9 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
      */
     public void showSplitLayout() {
         if (mSplitLayout == null) return;
-
-        // Hide standalone, show split
-        mStandaloneView.setVisibility(View.GONE);
+        if (mStandaloneView != null) {
+            mStandaloneView.setVisibility(View.GONE);
+        }
         mSplitLayout.setVisibility(View.VISIBLE);
 
         // Update legacy reference and focus the current pane
@@ -7215,6 +7230,11 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
     @SuppressLint("RtlHardcoded")
     @Override
     public void onBackPressed() {
+        // If showing standalone session, switch back to split layout
+        if (isShowingStandalone()) {
+            showSplitLayout();
+            return;
+        }
         if (mDockTuningMode) {
             exitDockTuningMode();
         } else if (getDrawer().isDrawerOpen(Gravity.LEFT)) {
@@ -7418,7 +7438,8 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
     public void termuxSessionListNotifyUpdated() {
         mTermuxSessionListViewController.notifyDataSetChanged();
         // Auto-close pane if its session finished (e.g. user typed "exit")
-        if (mSplitLayout != null && mTermuxService != null && !mIsClosingPane) {
+        // Only auto-close panes if NOT in standalone mode
+        if (mSplitLayout != null && mTermuxService != null && !mIsClosingPane && !isShowingStandalone()) {
             mIsClosingPane = true;
             try {
                 TerminalSession focusedSession = mSplitLayout.getFocusedSession();
