@@ -388,27 +388,8 @@ public class TermuxTerminalSessionActivityClient extends TermuxTerminalSessionCl
         TermuxService service = mActivity.getTermuxService();
         if (service == null) return;
         
-        // In split mode, create a standalone session instead of replacing current session
         if (mActivity.getSplitLayout() != null && mActivity.getSplitLayout().getPaneCount() > 1) {
-            if (service.getTermuxSessionsSize() >= MAX_SESSIONS) {
-                new AlertDialog.Builder(mActivity)
-                    .setTitle(R.string.title_max_terminals_reached)
-                    .setMessage(R.string.msg_max_terminals_reached)
-                    .setPositiveButton(android.R.string.ok, null).show();
-                return;
-            }
-            TerminalSession currentSession = mActivity.getCurrentSession();
-            String workingDirectory;
-            if (currentSession == null) {
-                workingDirectory = mActivity.getProperties().getDefaultWorkingDirectory();
-            } else {
-                workingDirectory = currentSession.getCwd();
-            }
-            TermuxSession newTermuxSession = service.createTermuxSession(
-                null, null, null, workingDirectory, isFailSafe, sessionName);
-            if (newTermuxSession != null) {
-                mActivity.getDrawer().closeDrawers();
-            }
+            mActivity.splitVertical();
             return;
         }
         
