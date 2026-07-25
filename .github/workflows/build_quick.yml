@@ -76,7 +76,7 @@ jobs:
             -x testDebugUnitTest \
             -x lintDebug \
             -x lintVitalDebug \
-            -x kaptGenerateStubsDebugKotlin 2>&1 || {
+            2>&1 || {
             echo "::error::Build failed"
             exit 1
           }
