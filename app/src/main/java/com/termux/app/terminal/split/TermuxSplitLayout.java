@@ -16,7 +16,9 @@ import com.termux.terminal.TerminalSession;
 import com.termux.view.TerminalView;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 public class TermuxSplitLayout extends ViewGroup {
 
@@ -56,6 +58,7 @@ public class TermuxSplitLayout extends ViewGroup {
 
     private final List<Rect> mPaneRects = new ArrayList<>();
     private final List<Rect> mDividerRects = new ArrayList<>();
+    private final Map<TerminalView, LeafNode> mViewToLeafMap = new HashMap<>();
 
     public TermuxSplitLayout(Context context) {
         this(context, null);
@@ -92,10 +95,12 @@ public class TermuxSplitLayout extends ViewGroup {
 
     public void initSinglePane(TerminalView terminalView) {
         removeAllViews();
+        mViewToLeafMap.clear();
         mRootNode = new LeafNode(0);
         mFocusedPaneIndex = 0;
         terminalView.setId(View.generateViewId());
         addView(terminalView, new LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT));
+        mViewToLeafMap.put(terminalView, (LeafNode) mRootNode);
         terminalView.requestFocus();
         setupPaneFocusTracking(terminalView);
         requestLayout();
@@ -127,10 +132,10 @@ public class TermuxSplitLayout extends ViewGroup {
         }
 
         newTerminalView.setId(View.generateViewId());
-        addView(newTerminalView, mFocusedPaneIndex + 1,
+        addView(newTerminalView,
             new LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT));
-
-        mFocusedPaneIndex = mFocusedPaneIndex + 1;
+        mViewToLeafMap.put(newTerminalView, newLeaf);
+        mFocusedPaneIndex = getLeafOrder(newLeaf);
 
         // CRITICAL: Install the focus listener BEFORE requesting focus, and call
         // notifyPaneFocused() so that onPaneFocused() updates mTerminalView.
@@ -158,6 +163,7 @@ public class TermuxSplitLayout extends ViewGroup {
 
         TerminalView targetView = getTerminalViewByLeafOrder(targetLeaf);
         if (targetView != null) {
+            mViewToLeafMap.remove(targetView);
             removeView(targetView);
         }
 
@@ -284,26 +290,30 @@ public class TermuxSplitLayout extends ViewGroup {
      * Called when a TerminalView receives a touch event to ensure focus tracking.
      */
     public void setFocusedPaneForView(TerminalView view) {
-        for (int i = 0; i < getChildCount(); i++) {
-            View child = getChildAt(i);
-            if (child == view && mFocusedPaneIndex != i) {
-                mFocusedPaneIndex = i;
+        LeafNode leaf = mViewToLeafMap.get(view);
+        if (leaf != null) {
+            int leafOrder = getLeafOrder(leaf);
+            if (mFocusedPaneIndex != leafOrder) {
+                mFocusedPaneIndex = leafOrder;
                 notifyPaneFocused();
                 invalidate();
-                break;
             }
         }
     }
 
     public void restoreFromNode(SplitNode root, List<TerminalView> views) {
         removeAllViews();
+        mViewToLeafMap.clear();
         mRootNode = root;
 
-        int leafCount = TermuxSplitUtils.countLeaves(root);
-        for (int i = 0; i < leafCount && i < views.size(); i++) {
+        List<LeafNode> leaves = new ArrayList<>();
+        collectLeaves(mRootNode, leaves);
+
+        for (int i = 0; i < leaves.size() && i < views.size(); i++) {
             TerminalView tv = views.get(i);
             tv.setId(View.generateViewId());
             addView(tv, new LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT));
+            mViewToLeafMap.put(tv, leaves.get(i));
             setupPaneFocusTracking(tv);
         }
 
@@ -348,18 +358,23 @@ public class TermuxSplitLayout extends ViewGroup {
 
         layoutNode(mRootNode, bounds);
 
-        int terminalChildIndex = 0;
         for (int i = 0; i < getChildCount(); i++) {
             View child = getChildAt(i);
             if (child instanceof TerminalView) {
-                if (terminalChildIndex < mPaneRects.size()) {
-                    Rect r = mPaneRects.get(terminalChildIndex);
-                    child.layout(r.left, r.top, r.right, r.bottom);
-                    child.setVisibility(VISIBLE);
+                TerminalView tv = (TerminalView) child;
+                LeafNode leaf = mViewToLeafMap.get(tv);
+                if (leaf != null && mPaneRects.size() > 0) {
+                    int leafOrder = getLeafOrder(leaf);
+                    if (leafOrder >= 0 && leafOrder < mPaneRects.size()) {
+                        Rect r = mPaneRects.get(leafOrder);
+                        child.layout(r.left, r.top, r.right, r.bottom);
+                        child.setVisibility(VISIBLE);
+                    } else {
+                        child.setVisibility(GONE);
+                    }
                 } else {
                     child.setVisibility(GONE);
                 }
-                terminalChildIndex++;
             }
         }
     }
@@ -544,25 +559,41 @@ public class TermuxSplitLayout extends ViewGroup {
         return -1;
     }
 
+    public int getLeafOrder(LeafNode leaf) {
+        int[] index = new int[]{0};
+        return findLeafIndexInOrder(mRootNode, leaf, index);
+    }
+
+    public Map<TerminalView, LeafNode> getViewToLeafMap() {
+        return mViewToLeafMap;
+    }
+
+    private void collectLeaves(SplitNode node, List<LeafNode> leaves) {
+        if (node instanceof LeafNode) {
+            leaves.add((LeafNode) node);
+        } else if (node instanceof BranchNode) {
+            BranchNode b = (BranchNode) node;
+            collectLeaves(b.first, leaves);
+            collectLeaves(b.second, leaves);
+        }
+    }
+
     @Nullable
     private TerminalView getTerminalViewByOrder(int order) {
-        int terminalIndex = 0;
-        for (int i = 0; i < getChildCount(); i++) {
-            View child = getChildAt(i);
-            if (child instanceof TerminalView) {
-                if (terminalIndex == order) return (TerminalView) child;
-                terminalIndex++;
-            }
+        LeafNode targetLeaf = findLeafAt(mRootNode, order, new int[]{0});
+        if (targetLeaf == null) return null;
+        for (Map.Entry<TerminalView, LeafNode> entry : mViewToLeafMap.entrySet()) {
+            if (entry.getValue() == targetLeaf) return entry.getKey();
         }
         return null;
     }
 
     @Nullable
     private TerminalView getTerminalViewByLeafOrder(LeafNode leaf) {
-        int[] index = new int[]{0};
-        int order = findLeafIndexInOrder(mRootNode, leaf, index);
-        if (order < 0) return null;
-        return getTerminalViewByOrder(order);
+        for (Map.Entry<TerminalView, LeafNode> entry : mViewToLeafMap.entrySet()) {
+            if (entry.getValue() == leaf) return entry.getKey();
+        }
+        return null;
     }
 
     private void adjustLeafAncestorRatios(SplitNode node, int targetIndex, int[] current,
@@ -661,17 +692,16 @@ public class TermuxSplitLayout extends ViewGroup {
     private void setupPaneFocusTracking(TerminalView view) {
         view.setOnFocusChangeListener((v, hasFocus) -> {
             if (hasFocus) {
-                for (int i = 0; i < getChildCount(); i++) {
-                    if (getChildAt(i) == v) {
-                        if (mFocusedPaneIndex != i) {
-                            mFocusedPaneIndex = i;
-                            // Suppress requestFocus since Android focus just changed TO us
-                            mSuppressFocusRequest = true;
-                            notifyPaneFocused();
-                            mSuppressFocusRequest = false;
-                            invalidate();
-                        }
-                        break;
+                TerminalView tv = (TerminalView) v;
+                LeafNode leaf = mViewToLeafMap.get(tv);
+                if (leaf != null) {
+                    int leafOrder = getLeafOrder(leaf);
+                    if (mFocusedPaneIndex != leafOrder) {
+                        mFocusedPaneIndex = leafOrder;
+                        mSuppressFocusRequest = true;
+                        notifyPaneFocused();
+                        mSuppressFocusRequest = false;
+                        invalidate();
                     }
                 }
             }

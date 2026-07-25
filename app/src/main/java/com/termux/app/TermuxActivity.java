@@ -7376,7 +7376,13 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
             if (child instanceof TerminalView) {
                 TerminalView tv = (TerminalView) child;
                 if (tv.getCurrentSession() == session) {
-                    mSplitLayout.setFocusedPaneIndex(i);
+                    LeafNode leaf = mSplitLayout.getViewToLeafMap().get(tv);
+                    if (leaf != null) {
+                        int leafOrder = mSplitLayout.getLeafOrder(leaf);
+                        mSplitLayout.setFocusedPaneIndex(leafOrder);
+                    } else {
+                        mSplitLayout.setFocusedPaneIndex(i);
+                    }
                     if (mSplitLayout.getPaneCount() > 1) {
                         mSplitLayout.closeFocusedPane();
                     }
@@ -7430,12 +7436,19 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
         builder.setTitle("⬇ Updating APK");
         builder.setView(layout);
         builder.setCancelable(true);
+        builder.setNegativeButton("Cancel", null);
         
         final Thread[] downloadThread = new Thread[1];
         
         androidx.appcompat.app.AlertDialog dialog = builder.create();
         dialog.setCanceledOnTouchOutside(false);
         dialog.show();
+        
+        dialog.getButton(android.content.DialogInterface.BUTTON_NEGATIVE).setOnClickListener(v -> {
+            Thread t = downloadThread[0];
+            if (t != null) t.interrupt();
+            dialog.dismiss();
+        });
         
         dialog.setOnCancelListener(d -> {
             Thread t = downloadThread[0];
