@@ -5525,10 +5525,12 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
     public void showStandaloneSession(TerminalSession session) {
         if (mStandaloneView == null || session == null) return;
 
-        // Detach any current session from standalone view and attach the new one
         mStandaloneView.attachSession(session);
 
-        // Hide split layout, show standalone
+        // Clear focus from split layout and update legacy reference
+        mSplitLayout.clearFocus();
+        mTerminalView = mStandaloneView;
+
         mSplitLayout.setVisibility(View.GONE);
         mStandaloneView.setVisibility(View.VISIBLE);
 
@@ -5536,7 +5538,7 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
         FrameLayout content = findViewById(R.id.terminal_content);
         if (content != null) content.requestLayout();
 
-        // Delay focus and keyboard until the view is laid out
+        // Delay focus and keyboard until layout completes
         mStandaloneView.post(() -> {
             mStandaloneView.requestFocus();
             if (mTermuxTerminalViewClient != null) {
@@ -5556,9 +5558,10 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
         mStandaloneView.setVisibility(View.GONE);
         mSplitLayout.setVisibility(View.VISIBLE);
 
-        // Focus the current pane in split
+        // Update legacy reference and focus the current pane
         TerminalView focusedView = mSplitLayout.getFocusedTerminalView();
         if (focusedView != null) {
+            mTerminalView = focusedView;
             focusedView.requestFocus();
         }
 
