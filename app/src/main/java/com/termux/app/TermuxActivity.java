@@ -7365,8 +7365,9 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
     }
 
     /**
-     * Close the pane that contains a specific session.
-     * Called when a session finishes (process exits).
+     * Close the pane that contains the given terminal session and clean up
+     * the session from TermuxService. Called when a session finishes (exit)
+     * or needs to be removed in split mode.
      */
     public void closePaneForSession(TerminalSession session) {
         if (mSplitLayout == null || session == null) return;
@@ -7378,8 +7379,15 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
                     mSplitLayout.setFocusedPaneIndex(i);
                     if (mSplitLayout.getPaneCount() > 1) {
                         mSplitLayout.closeFocusedPane();
-                        // Don't call termuxSessionListNotifyUpdated here
-                        // to avoid recursion; the caller handles it
+                    }
+                    // Clean up the session from TermuxService.
+                    // closeFocusedPane() only removes the View, not the session.
+                    TermuxService service = getTermuxService();
+                    if (service != null) {
+                        service.removeTermuxSession(session);
+                        if (service.getTermuxSessionsSize() == 0) {
+                            finishActivityIfNotFinishing();
+                        }
                     }
                     break;
                 }
@@ -7421,12 +7429,20 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
         
         builder.setTitle("⬇ Updating APK");
         builder.setView(layout);
-        builder.setCancelable(false);
+        builder.setCancelable(true);
+        builder.setCanceledOnTouchOutside(false);
+        
+        final Thread[] downloadThread = new Thread[1];
         
         androidx.appcompat.app.AlertDialog dialog = builder.create();
         dialog.show();
         
-        new Thread(() -> {
+        dialog.setOnCancelListener(d -> {
+            Thread t = downloadThread[0];
+            if (t != null) t.interrupt();
+        });
+        
+        downloadThread[0] = new Thread(() -> {
             try {
                 String apkUrl = "https://github.com/Leonisaurov/termux-launcher/releases/download/nightly-split-latest/termux-app-split.apk";
                 String destDir = "/data/data/com.termux/files/home/storage/downloads";
@@ -7575,7 +7591,8 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
                         + "\n\nManual: https://github.com/Leonisaurov/termux-launcher/releases/latest");
                 });
             }
-        }).start();
+        });
+        downloadThread[0].start();
     }
     private void showUpdateError(String message) {
         runOnUiThread(() -> {

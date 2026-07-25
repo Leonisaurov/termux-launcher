@@ -178,9 +178,6 @@ public class TermuxSplitLayout extends ViewGroup {
         BranchNode parent = (BranchNode) path.get(path.size() - 2);
         SplitNode sibling = (parent.first == targetLeaf) ? parent.second : parent.first;
 
-        int siblingIndex = getLeafInOrderIndex(sibling);
-        if (siblingIndex < 0) siblingIndex = 0;
-
         if (path.size() >= 3) {
             BranchNode grandParent = (BranchNode) path.get(path.size() - 3);
             if (grandParent.first == parent) {
@@ -192,7 +189,11 @@ public class TermuxSplitLayout extends ViewGroup {
             mRootNode = sibling;
         }
 
-        mFocusedPaneIndex = Math.min(siblingIndex, getPaneCount() - 1);
+        // Recalculate the focused index from the modified tree
+        mFocusedPaneIndex = getLeafInOrderIndex(sibling);
+        if (mFocusedPaneIndex < 0 || mFocusedPaneIndex >= getPaneCount()) {
+            mFocusedPaneIndex = 0;
+        }
         if (mCallback != null) {
             mCallback.onPaneCountChanged(getPaneCount());
         }
@@ -517,14 +518,14 @@ public class TermuxSplitLayout extends ViewGroup {
     }
 
     private int getLeafInOrderIndex(SplitNode node) {
-        int[] index = new int[]{0};
-        LeafNode target = null;
-        if (node instanceof LeafNode) {
-            target = (LeafNode) node;
-        } else {
-            return 0;
+        // Find the first leaf in this subtree
+        SplitNode first = node;
+        while (first instanceof BranchNode) {
+            first = ((BranchNode) first).first;
         }
-        return findLeafIndexInOrder(mRootNode, target, index);
+        if (!(first instanceof LeafNode)) return 0;
+        int[] index = new int[]{0};
+        return findLeafIndexInOrder(mRootNode, (LeafNode) first, index);
     }
 
     private int findLeafIndexInOrder(SplitNode node, LeafNode target, int[] index) {
