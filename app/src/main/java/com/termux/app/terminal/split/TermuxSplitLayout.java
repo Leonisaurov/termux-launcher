@@ -610,7 +610,8 @@ public class TermuxSplitLayout extends ViewGroup {
             mCallback.onPaneFocused(focusedView, mFocusedPaneIndex);
             if (focusedView != null) {
                 focusedView.post(() -> {
-                    focusedView.requestFocus();
+                    // Don't call requestFocus() here - the TerminalView already does it
+                    // in onSingleTapUp(). Calling it again can cause focus loops.
                     focusedView.invalidate();
                 });
             }
