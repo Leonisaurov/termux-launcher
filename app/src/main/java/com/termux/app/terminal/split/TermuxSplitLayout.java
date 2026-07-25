@@ -32,6 +32,8 @@ public class TermuxSplitLayout extends ViewGroup {
     private static final int DIVIDER_COLOR = 0xFF37474F;
 
     private static final int DIVIDER_TOUCH_SLOP_DP = 20;
+    private static final float MIN_PANE_RATIO = 0.15f;
+    private static final float MAX_PANE_RATIO = 0.85f;
 
     private final int mDividerSizePx;
     private final int mFocusBorderSizePx;
@@ -135,11 +137,9 @@ public class TermuxSplitLayout extends ViewGroup {
         // Previously, requestFocus() was called in a post() before setupPaneFocusTracking(),
         // meaning the focus event was lost and mTerminalView was never updated.
         setupPaneFocusTracking(newTerminalView);
-        newTerminalView.post(() -> {
-            newTerminalView.updateSize();
-            newTerminalView.requestFocus();
-            newTerminalView.invalidate();
-        });
+        newTerminalView.updateSize();
+        newTerminalView.requestFocus();
+        newTerminalView.invalidate();
 
         // Notify so mTerminalView and keyboard follow the new pane
         notifyPaneFocused();
@@ -148,7 +148,6 @@ public class TermuxSplitLayout extends ViewGroup {
             mCallback.onPaneCountChanged(getPaneCount());
         }
         requestLayout();
-        invalidate();
     }
 
     public boolean closeFocusedPane() {
@@ -173,7 +172,6 @@ public class TermuxSplitLayout extends ViewGroup {
             // Focus the remaining pane
             notifyPaneFocused();
             requestLayout();
-            invalidate();
             return true;
         }
 
@@ -205,7 +203,6 @@ public class TermuxSplitLayout extends ViewGroup {
         notifyPaneFocused();
 
         requestLayout();
-        invalidate();
         return true;
     }
 
@@ -241,7 +238,6 @@ public class TermuxSplitLayout extends ViewGroup {
 
         adjustLeafAncestorRatios(mRootNode, mFocusedPaneIndex, new int[]{0}, deltaX, deltaY);
         requestLayout();
-        invalidate();
     }
 
     @Nullable
@@ -315,7 +311,6 @@ public class TermuxSplitLayout extends ViewGroup {
             mCallback.onPaneCountChanged(getPaneCount());
         }
         requestLayout();
-        invalidate();
     }
 
     @Override
@@ -424,17 +419,16 @@ public class TermuxSplitLayout extends ViewGroup {
                             float totalWidth = branchBounds.width() - mDividerSizePx;
                             if (totalWidth > 0) {
                                 float newRatio = (branchBounds.width() - mDividerSizePx) * mDragStartRatio + dx;
-                                mDragBranch.ratio = Math.max(0.15f, Math.min(0.85f, newRatio / totalWidth));
+                                mDragBranch.ratio = Math.max(MIN_PANE_RATIO, Math.min(MAX_PANE_RATIO, newRatio / totalWidth));
                             }
                         } else {
                             float totalHeight = branchBounds.height() - mDividerSizePx;
                             if (totalHeight > 0) {
                                 float newRatio = (branchBounds.height() - mDividerSizePx) * mDragStartRatio + dy;
-                                mDragBranch.ratio = Math.max(0.15f, Math.min(0.85f, newRatio / totalHeight));
+                                mDragBranch.ratio = Math.max(MIN_PANE_RATIO, Math.min(MAX_PANE_RATIO, newRatio / totalHeight));
                             }
                         }
                         requestLayout();
-                        invalidate();
                     }
                     return true;
                 }
@@ -587,15 +581,15 @@ public class TermuxSplitLayout extends ViewGroup {
             if (foundInFirst || foundInSecond) {
                 if (b.orientation == BranchNode.Orientation.HORIZONTAL) {
                     if (foundInFirst) {
-                        b.ratio = Math.max(0.15f, Math.min(0.85f, b.ratio + (float) deltaX / getWidth()));
+                        b.ratio = Math.max(MIN_PANE_RATIO, Math.min(MAX_PANE_RATIO, b.ratio + (float) deltaX / getWidth()));
                     } else {
-                        b.ratio = Math.max(0.15f, Math.min(0.85f, b.ratio - (float) deltaX / getWidth()));
+                        b.ratio = Math.max(MIN_PANE_RATIO, Math.min(MAX_PANE_RATIO, b.ratio - (float) deltaX / getWidth()));
                     }
                 } else {
                     if (foundInFirst) {
-                        b.ratio = Math.max(0.15f, Math.min(0.85f, b.ratio + (float) deltaY / getHeight()));
+                        b.ratio = Math.max(MIN_PANE_RATIO, Math.min(MAX_PANE_RATIO, b.ratio + (float) deltaY / getHeight()));
                     } else {
-                        b.ratio = Math.max(0.15f, Math.min(0.85f, b.ratio - (float) deltaY / getHeight()));
+                        b.ratio = Math.max(MIN_PANE_RATIO, Math.min(MAX_PANE_RATIO, b.ratio - (float) deltaY / getHeight()));
                     }
                 }
             }
@@ -651,12 +645,10 @@ public class TermuxSplitLayout extends ViewGroup {
             TerminalView focusedView = getFocusedTerminalView();
             mCallback.onPaneFocused(focusedView, mFocusedPaneIndex);
             if (focusedView != null) {
-                focusedView.post(() -> {
-                    if (!mSuppressFocusRequest && !focusedView.hasFocus()) {
-                        focusedView.requestFocus();
-                    }
-                    focusedView.invalidate();
-                });
+                if (!mSuppressFocusRequest && !focusedView.hasFocus()) {
+                    focusedView.requestFocus();
+                }
+                focusedView.invalidate();
             }
         }
     }
