@@ -135,34 +135,43 @@
 
                         <com.google.android.material.button.MaterialButton
                             android:id="@+id/split_horizontal_button"
-                            style="@style/Widget.Termux.ToolbarButton"
+                            style="?android:attr/buttonBarButtonStyle"
                             android:layout_width="wrap_content"
-                            android:layout_height="match_parent"
-                            android:contentDescription="@string/content_description_new_session"
+                            android:layout_height="60dp"
+                            android:layout_weight="1"
+                            android:layout_gravity="center_horizontal"
                             android:padding="4dp"
                             android:text="⤡"
+                            android:textAllCaps="true"
+                            android:textColor="?attr/termuxColorOnSurface"
                             android:textSize="12sp"
                             android:tooltipText="Split Horizontal" />
 
                         <com.google.android.material.button.MaterialButton
                             android:id="@+id/split_vertical_button"
-                            style="@style/Widget.Termux.ToolbarButton"
+                            style="?android:attr/buttonBarButtonStyle"
                             android:layout_width="wrap_content"
-                            android:layout_height="match_parent"
-                            android:contentDescription="@string/content_description_new_session"
+                            android:layout_height="60dp"
+                            android:layout_weight="1"
+                            android:layout_gravity="center_horizontal"
                             android:padding="4dp"
                             android:text="⤢"
+                            android:textAllCaps="true"
+                            android:textColor="?attr/termuxColorOnSurface"
                             android:textSize="12sp"
                             android:tooltipText="Split Vertical" />
 
                         <com.google.android.material.button.MaterialButton
                             android:id="@+id/close_pane_button"
-                            style="@style/Widget.Termux.ToolbarButton"
+                            style="?android:attr/buttonBarButtonStyle"
                             android:layout_width="wrap_content"
-                            android:layout_height="match_parent"
-                            android:contentDescription="@string/content_description_new_session"
+                            android:layout_height="60dp"
+                            android:layout_weight="1"
+                            android:layout_gravity="center_horizontal"
                             android:padding="4dp"
                             android:text="✕"
+                            android:textAllCaps="true"
+                            android:textColor="?attr/termuxColorOnSurface"
                             android:textSize="12sp"
                             android:tooltipText="Close Pane" />
 
