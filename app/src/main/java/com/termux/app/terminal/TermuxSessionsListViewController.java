@@ -40,6 +40,7 @@ public class TermuxSessionsListViewController extends BaseAdapter
     private final List<TermuxSession> mSessions;
     private TermuxSplitLayout mSplitLayout;
     private final List<ListItem> mItems = new ArrayList<>();
+    private boolean mExpanded = false;
 
     static final int TYPE_HEADER = 0;
     static final int TYPE_SESSION = 1;
@@ -68,6 +69,9 @@ public class TermuxSessionsListViewController extends BaseAdapter
         mSplitLayout = layout;
         notifyDataSetChanged();
     }
+
+    public boolean isExpanded() { return mExpanded; }
+    public void setExpanded(boolean expanded) { mExpanded = expanded; }
 
     private void rebuildGroupedList() {
         mItems.clear();
@@ -117,15 +121,17 @@ public class TermuxSessionsListViewController extends BaseAdapter
             group.grandchildCount = splitSessions.size();
             mItems.add(group);
 
-            for (int i = 0; i < splitSessions.size(); i++) {
-                TermuxSession s = splitSessions.get(i);
-                ListItem item = new ListItem();
-                item.type = TYPE_SESSION;
-                item.session = s;
-                item.isStandalone = false;
-                item.paneOrder = sessionToPaneOrder.getOrDefault(s, i) + 1;
-                item.isChild = true;
-                mItems.add(item);
+            if (mExpanded) {
+                for (int i = 0; i < splitSessions.size(); i++) {
+                    TermuxSession s = splitSessions.get(i);
+                    ListItem item = new ListItem();
+                    item.type = TYPE_SESSION;
+                    item.session = s;
+                    item.isStandalone = false;
+                    item.paneOrder = sessionToPaneOrder.getOrDefault(s, i) + 1;
+                    item.isChild = true;
+                    mItems.add(item);
+                }
             }
         } else if (splitSessions.size() == 1) {
             TermuxSession s = splitSessions.get(0);
@@ -207,7 +213,8 @@ public class TermuxSessionsListViewController extends BaseAdapter
                 tv.setTextColor(0xFFFFFFFF);
                 tv.setTypeface(null, Typeface.BOLD);
             }
-            tv.setText(item.title);
+            String indicator = mExpanded ? "▼ " : "▶ ";
+            tv.setText(indicator + item.title);
             return tv;
         }
 
@@ -320,13 +327,9 @@ public class TermuxSessionsListViewController extends BaseAdapter
         ListItem item = mItems.get(position);
 
         if (item.type == TYPE_SPLIT_GROUP) {
-            if (mSplitLayout != null) {
-                TerminalSession focusedSession = mSplitLayout.getFocusedSession();
-                if (focusedSession != null) {
-                    mActivity.getTermuxTerminalSessionClient().setCurrentSession(focusedSession);
-                }
-            }
-            mActivity.getDrawer().closeDrawers();
+            mExpanded = !mExpanded;
+            rebuildGroupedList();
+            notifyDataSetChanged();
         } else if (item.type == TYPE_SESSION && item.session != null) {
             mActivity.getTermuxTerminalSessionClient().setCurrentSession(item.session.getTerminalSession());
             mActivity.getDrawer().closeDrawers();

@@ -206,6 +206,8 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
 
     private boolean mIsClosingPane = false;
 
+    private TerminalSession mPendingDragSession = null;
+
     /**
      * The {@link TermuxSplitLayout} that manages split-screen terminal panes.
      */
@@ -5407,6 +5409,16 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
                 newView.setFocusableInTouchMode(true);
                 // Initialize TerminalRenderer before attachSession to prevent NPE in updateSize()
                 newView.setTextSize(mPreferences.getFontSize());
+                // If there's a pending dragged session, use it instead of creating a new one
+                if (mPendingDragSession != null) {
+                    if (mPendingDragSession.isRunning()) {
+                        newView.attachSession(mPendingDragSession);
+                        mPendingDragSession = null;
+                        return newView;
+                    } else {
+                        mPendingDragSession = null;
+                    }
+                }
                 // Create a new session and attach it to the new TerminalView
                 if (mTermuxService != null) {
                     String workingDir = getCurrentSession() != null ? getCurrentSession().getCwd() : null;
@@ -6222,6 +6234,7 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
         mTermuxSessionListViewController.setOnSessionDragListener((session, view) -> {
             int sessionIndex = mTermuxService.getTermuxSessions().indexOf(session);
             if (sessionIndex < 0) return;
+            mPendingDragSession = session.getTerminalSession();
             ClipData data = ClipData.newPlainText("termux-session", String.valueOf(sessionIndex));
             view.startDragAndDrop(data, new View.DragShadowBuilder(view), null, 0);
         });
