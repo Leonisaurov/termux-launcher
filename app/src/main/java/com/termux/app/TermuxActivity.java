@@ -691,6 +691,9 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
             mIsInvalidState = true;
             return;
         }
+        // Start clipboard socket server for xsel
+        com.termux.app.clipboard.TermuxClipboardServer.start(this);
+
         // Send the {@link TermuxConstants#BROADCAST_TERMUX_OPENED} broadcast to notify apps that Termux
         // app has been opened.
         TermuxUtils.sendTermuxOpenedBroadcast(this);

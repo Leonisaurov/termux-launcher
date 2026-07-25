@@ -1,7 +1,8 @@
 #!/data/data/com.termux/files/usr/bin/bash
 #
-# xsel - X11 clipboard tool for Termux Android
-# Uses multiple backends: cmd clipboard, termux-clipboard, ContentProvider
+# xsel - Fast clipboard tool for Termux Android
+# Uses local TCP socket (127.0.0.1:18787) for instant clipboard access.
+# Falls back to cmd clipboard or termux-clipboard if socket unavailable.
 # If X11 is detected, delegates to system xsel.
 
 # Detect X11
@@ -9,92 +10,82 @@ if [ -n "$DISPLAY" ] && command -v /usr/bin/xsel &>/dev/null; then
     exec /usr/bin/xsel "$@"
 fi
 
-# --- Backend detection ---
-BACKEND=""
+XSEL_PORT=18787
+XSEL_HOST="127.0.0.1"
 
-# 1. Try cmd clipboard (Android native, works on most devices)
-if [ -z "$BACKEND" ] && command -v cmd &>/dev/null; then
-    if cmd clipboard get-text &>/dev/null; then
-        BACKEND="cmd"
-    fi
-fi
+# Check if /dev/tcp connection is possible (silent)
+has_dev_tcp() {
+    { exec 3<>/dev/tcp/${XSEL_HOST}/${XSEL_PORT}; } 2>/dev/null
+}
 
-# 2. Try termux-clipboard (Termux:API)
-if [ -z "$BACKEND" ] && command -v termux-clipboard-get &>/dev/null; then
-    if termux-clipboard-get &>/dev/null; then
-        BACKEND="termux-api"
-    else
-        # Might work despite empty clipboard
-        BACKEND="termux-api"
-    fi
-fi
+# Clipboard functions via TCP socket
+get_clipboard_socket() {
+    has_dev_tcp || return 1
+    echo "GET" >&3
+    IFS= read -r line <&3
+    exec 3>&-
+    echo "$line"
+    return 0
+}
 
-# 3. Try ContentProvider (works on debuggable builds)
-if [ -z "$BACKEND" ] && [ -x /system/bin/content ]; then
-    if /system/bin/content read --uri "content://com.termux.clipboard/get" &>/dev/null; then
-        BACKEND="content"
-    fi
-fi
+set_clipboard_socket() {
+    local text="$1"
+    has_dev_tcp || return 1
+    echo "SET:${text}" >&3
+    IFS= read -r response <&3
+    exec 3>&-
+    [ "$response" = "OK" ]
+}
 
-# --- Backend functions ---
+# Fallback: cmd clipboard (Android native)
+get_clipboard_cmd() {
+    command -v cmd &>/dev/null || return 1
+    cmd clipboard get-text 2>/dev/null
+}
+
+set_clipboard_cmd() {
+    local text="$1"
+    command -v cmd &>/dev/null || return 1
+    cmd clipboard put-text "$text" 2>/dev/null
+}
+
+# Fallback: termux-clipboard (Termux:API)
+get_clipboard_termux() {
+    command -v termux-clipboard-get &>/dev/null || return 1
+    termux-clipboard-get 2>/dev/null
+}
+
+set_clipboard_termux() {
+    local text="$1"
+    command -v termux-clipboard-set &>/dev/null || return 1
+    echo -n "$text" | termux-clipboard-set 2>/dev/null
+}
+
+# Try backends in order: socket > cmd > termux-clipboard
 get_clipboard() {
-    case "$BACKEND" in
-        cmd)
-            cmd clipboard get-text 2>/dev/null
-            ;;
-        termux-api)
-            termux-clipboard-get 2>/dev/null
-            ;;
-        content)
-            /system/bin/content read --uri "content://com.termux.clipboard/get" 2>/dev/null | \
-                sed -n 's/.*value=//p' | head -1
-            ;;
-        *)
-            return 1
-            ;;
-    esac
+    local result
+    result=$(get_clipboard_socket) && { echo "$result"; return 0; }
+    result=$(get_clipboard_cmd) && { echo "$result"; return 0; }
+    result=$(get_clipboard_termux) && { echo "$result"; return 0; }
+    return 1
 }
 
 set_clipboard() {
     local text="$1"
-    case "$BACKEND" in
-        cmd)
-            cmd clipboard put-text "$text" 2>/dev/null
-            ;;
-        termux-api)
-            echo -n "$text" | termux-clipboard-set 2>/dev/null
-            ;;
-        content)
-            /system/bin/content write --uri "content://com.termux.clipboard/set" \
-                --bind text:s:"$text" 2>/dev/null
-            ;;
-        *)
-            return 1
-            ;;
-    esac
+    set_clipboard_socket "$text" && return 0
+    set_clipboard_cmd "$text" && return 0
+    set_clipboard_termux "$text" && return 0
+    return 1
 }
 
-# --- If no backend found, show help ---
-if [ -z "$BACKEND" ]; then
-    echo "xsel: no clipboard backend available" >&2
-    echo "" >&2
-    echo "Install Termux:API for clipboard support:" >&2
-    echo "  pkg install termux-api" >&2
-    echo "" >&2
-    echo "Or use Android's clipboard via:" >&2
-    echo "  cmd clipboard put-text <text>   (write)" >&2
-    echo "  cmd clipboard get-text          (read)" >&2
-    exit 1
-fi
-
-# --- Parse arguments ---
+# Parse arguments
 ACTION=""
 while [ $# -gt 0 ]; do
     case "$1" in
         -o|--output|--primary) ACTION="get" ;;
         -i|--input)  ACTION="set" ;;
         -c|--clear)  ACTION="clear" ;;
-        -b|--clipboard) ;; # default, ignore
+        -b|--clipboard) ;;
         -h|--help)
             echo "Usage: xsel [-o|-i|-c|-b]"
             echo ""
@@ -103,7 +94,6 @@ while [ $# -gt 0 ]; do
             echo "  -c, --clear    Clear clipboard"
             echo "  -b, --clipboard Use clipboard selection (default)"
             echo ""
-            echo "Backend: ${BACKEND}"
             echo "If DISPLAY is set, delegates to system xsel."
             exit 0
             ;;
@@ -115,7 +105,25 @@ done
 [ -z "$ACTION" ] && ACTION="get"
 
 case "$ACTION" in
-    get) get_clipboard ;;
-    set) set_clipboard "$(cat)" ;;
-    clear) set_clipboard "" ;;
+    get)
+        get_clipboard
+        if [ $? -ne 0 ]; then
+            echo "xsel: no clipboard backend available (is app running?)" >&2
+            exit 1
+        fi
+        ;;
+    set)
+        set_clipboard "$(cat)"
+        if [ $? -ne 0 ]; then
+            echo "xsel: no clipboard backend available (is app running?)" >&2
+            exit 1
+        fi
+        ;;
+    clear)
+        set_clipboard ""
+        if [ $? -ne 0 ]; then
+            echo "xsel: no clipboard backend available (is app running?)" >&2
+            exit 1
+        fi
+        ;;
 esac
