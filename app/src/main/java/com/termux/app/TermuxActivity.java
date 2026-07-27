@@ -62,6 +62,7 @@ import android.view.ViewTreeObserver;
 import android.view.View.DragShadowBuilder;
 import android.view.WindowManager;
 import android.util.DisplayMetrics;
+import android.util.Log;
 import android.util.LruCache;
 import android.widget.EditText;
 import android.widget.FrameLayout;
