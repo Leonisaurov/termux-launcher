@@ -4,7 +4,7 @@ import android.app.AlertDialog;
 import android.app.Activity;
 import android.content.DialogInterface;
 
-import com.termux.shared.settings.preferences.TermuxAppSharedPreferences;
+import com.termux.shared.termux.settings.preferences.TermuxAppSharedPreferences;
 
 /**
  * Dialog shown on first run to let the user choose between APT and PACMAN package managers.
