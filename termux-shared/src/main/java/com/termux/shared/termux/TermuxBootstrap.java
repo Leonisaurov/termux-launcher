@@ -168,8 +168,7 @@ public class TermuxBootstrap {
          * https://wiki.debian.org/Apt
          * https://wiki.debian.org/deb
          */
-        APT("apt");
-
+        APT("apt"),
         ///**
         // * Termux Android Package Manager (TAPM) for managing termux apk package files.
         // * https://en.wikipedia.org/wiki/Apk_(file_format)
@@ -223,8 +222,7 @@ public class TermuxBootstrap {
         /**
          * {@link PackageManager#APT} variant for Android 5+.
          */
-        APT_ANDROID_5("apt-android-5");
-
+        APT_ANDROID_5("apt-android-5"),
         ///** {@link PackageManager#TAPM} variant for Android 7+. */
         //TAPM_ANDROID_7("tapm-android-7");
         /** {@link PackageManager#PACMAN} variant for Android 7+. */
