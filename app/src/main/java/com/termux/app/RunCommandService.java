@@ -235,7 +235,7 @@ public class RunCommandService extends Service {
         Resources res = getResources();
         // Set pending intent to be launched when notification is clicked
         Intent notificationIntent = TermuxActivity.newInstance(this);
-        PendingIntent contentIntent = PendingIntent.getActivity(this, 0, notificationIntent, 0);
+        PendingIntent contentIntent = PendingIntent.getActivity(this, 0, notificationIntent, PendingIntent.FLAG_IMMUTABLE);
         // Build the notification
         NotificationCompat.Builder builder = new NotificationCompat.Builder(this, TermuxConstants.TERMUX_RUN_COMMAND_NOTIFICATION_CHANNEL_ID)
                 .setSmallIcon(R.drawable.ic_service_notification)
