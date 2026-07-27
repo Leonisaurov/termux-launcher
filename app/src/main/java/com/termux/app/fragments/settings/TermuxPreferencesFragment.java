@@ -46,20 +46,33 @@ public class TermuxPreferencesFragment extends MaterialPreferenceFragment {
 
                 final TermuxAppSharedPreferences prefs = TermuxAppSharedPreferences.build(ctx, true);
                 if (prefs == null) return false;
-                String currentPM = prefs.getPackageManagerPreference();
-                if (currentPM == null) currentPM = "apt";
 
-                String targetPM = "apt".equals(currentPM) ? "pacman" : "apt";
-                String targetName = "pacman".equals(targetPM) ? "Pacman" : "APT";
+                // Detect the ACTUAL package manager installed, not just the preference
+                PackageManagerConverter detector = new PackageManagerConverter();
+                PackageManagerConverter.PackageManager currentPM;
+                try {
+                    currentPM = detector.detectCurrentPackageManager();
+                } catch (Exception e) {
+                    currentPM = PackageManagerConverter.PackageManager.NONE;
+                }
+
+                if (currentPM == PackageManagerConverter.PackageManager.NONE) {
+                    Toast.makeText(ctx, "No package manager detected", Toast.LENGTH_LONG).show();
+                    return true;
+                }
+
+                String currentName = currentPM.name().toLowerCase();
+                String targetName = "apt".equals(currentName) ? "pacman" : "apt";
+                String targetDisplayName = "pacman".equals(targetName) ? "Pacman" : "APT";
 
                 new AlertDialog.Builder(ctx)
                     .setTitle("Switch Package Manager")
-                    .setMessage("Switch from " + currentPM.toUpperCase()
-                        + " to " + targetName + "?\n\n"
+                    .setMessage("Switch from " + currentName.toUpperCase()
+                        + " to " + targetDisplayName + "?\n\n"
                         + "This will convert your installed packages database and swap package manager binaries.\n"
                         + "Your home directory will NOT be affected.\n\n"
                         + "A backup will be created before the conversion.")
-                    .setPositiveButton("Switch to " + targetName, (dialog, which) -> {
+                    .setPositiveButton("Switch to " + targetDisplayName, (dialog, which) -> {
                         new Thread(() -> {
                             try {
                                 PackageManagerConverter converter = new PackageManagerConverter();
@@ -88,14 +101,14 @@ public class TermuxPreferencesFragment extends MaterialPreferenceFragment {
                                     public void onComplete(boolean success) {
                                         if (getActivity() != null && success) {
                                             getActivity().runOnUiThread(() -> {
-                                                prefs.setPackageManagerPreference(targetPM);
-                                                pref.setSummary("Current: " + targetPM);
+                                                prefs.setPackageManagerPreference(targetName);
+                                                pref.setSummary("Current: " + targetName);
                                             });
                                         }
                                     }
                                 });
                                 PackageManagerConverter.PackageManager target =
-                                    "pacman".equals(targetPM) ?
+                                    "pacman".equals(targetName) ?
                                     PackageManagerConverter.PackageManager.PACMAN :
                                     PackageManagerConverter.PackageManager.APT;
                                 converter.convert(target);
@@ -117,15 +130,17 @@ public class TermuxPreferencesFragment extends MaterialPreferenceFragment {
                     .show();
                 return true;
             });
-            // Update summary with current value
+            // Update summary with detected package manager
             Preference pmPref = findPreference("package_manager");
             if (pmPref != null) {
-                TermuxAppSharedPreferences currentPrefs = TermuxAppSharedPreferences.build(getContext(), true);
-                if (currentPrefs != null) {
-                    String current = currentPrefs.getPackageManagerPreference();
-                    if (current != null) {
-                        pmPref.setSummary("Current: " + current);
+                PackageManagerConverter detector = new PackageManagerConverter();
+                try {
+                    PackageManagerConverter.PackageManager current = detector.detectCurrentPackageManager();
+                    if (current != null && current != PackageManagerConverter.PackageManager.NONE) {
+                        pmPref.setSummary("Current: " + current.name().toLowerCase());
                     }
+                } catch (Exception e) {
+                    pmPref.setSummary("Current: unknown");
                 }
             }
         }

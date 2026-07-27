@@ -24,6 +24,7 @@ import com.termux.shared.termux.TermuxConstants;
 import com.termux.shared.termux.TermuxUtils;
 import com.termux.shared.termux.shell.command.environment.TermuxShellEnvironment;
 import com.termux.shared.termux.settings.preferences.TermuxAppSharedPreferences;
+import com.termux.pkgconv.PackageManagerConverter;
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileOutputStream;
@@ -69,28 +70,6 @@ final class TermuxInstaller {
      * Performs bootstrap setup if necessary.
      */
     static void setupBootstrapIfNeeded(final Activity activity, final Runnable whenDone) {
-        // Verificar que el gestor de paquetes esté configurado
-        TermuxAppSharedPreferences prefs = TermuxAppSharedPreferences.build(activity);
-        if (prefs != null && prefs.getPackageManagerPreference() == null) {
-            // Mostrar diálogo de selección en UI thread
-            activity.runOnUiThread(() -> {
-                PackageManagerDialog.show(activity, new PackageManagerDialog.PackageManagerCallback() {
-                    @Override
-                    public void onPackageManagerSelected(String packageManager) {
-                        // Una vez seleccionado, reintentar setupBootstrapIfNeeded
-                        setupBootstrapIfNeeded(activity, whenDone);
-                    }
-
-                    @Override
-                    public void onCancel() {
-                        // No debería ocurrir porque el diálogo no es cancelable
-                        activity.finish();
-                    }
-                });
-            });
-            return; // Esperar a que el usuario elija
-        }
-
         String bootstrapErrorMessage;
         Error filesDirectoryAccessibleError;
         // This will also call Context.getFilesDir(), which should ensure that termux files directory
@@ -129,6 +108,14 @@ final class TermuxInstaller {
                     FileUtils.APP_EXECUTABLE_FILE_PERMISSIONS, true, true, false
                 );
                 if (loginBinaryError == null) {
+                    // Auto-detect and save package manager preference if not set
+                    TermuxAppSharedPreferences prefs = TermuxAppSharedPreferences.build(activity);
+                    if (prefs != null && prefs.getPackageManagerPreference() == null) {
+                        String detected = detectCurrentPackageManager();
+                        if (detected != null) {
+                            prefs.setPackageManagerPreference(detected);
+                        }
+                    }
                     whenDone.run();
                     return;
                 }
@@ -138,6 +125,26 @@ final class TermuxInstaller {
         } else if (FileUtils.fileExists(TERMUX_PREFIX_DIR_PATH, false)) {
             Logger.logInfo(LOG_TAG, "The termux prefix directory \"" + TERMUX_PREFIX_DIR_PATH + "\" does not exist but another file exists at its destination.");
         }
+
+        // Bootstrap not installed - check if PM preference exists before proceeding
+        TermuxAppSharedPreferences prefs = TermuxAppSharedPreferences.build(activity);
+        if (prefs != null && prefs.getPackageManagerPreference() == null) {
+            activity.runOnUiThread(() -> {
+                PackageManagerDialog.show(activity, new PackageManagerDialog.PackageManagerCallback() {
+                    @Override
+                    public void onPackageManagerSelected(String packageManager) {
+                        setupBootstrapIfNeeded(activity, whenDone);
+                    }
+
+                    @Override
+                    public void onCancel() {
+                        activity.finish();
+                    }
+                });
+            });
+            return;
+        }
+
         final ProgressDialog progress = ProgressDialog.show(activity, null, activity.getString(R.string.bootstrap_installer_body), true, false);
         new Thread() {
 
@@ -420,5 +427,18 @@ final class TermuxInstaller {
             }
         }
         throw new RuntimeException("Unable to determine arch from Build.SUPPORTED_ABIS =  " + Arrays.toString(Build.SUPPORTED_ABIS));
+    }
+
+    private static String detectCurrentPackageManager() {
+        PackageManagerConverter detector = new PackageManagerConverter();
+        try {
+            PackageManagerConverter.PackageManager pm = detector.detectCurrentPackageManager();
+            if (pm == PackageManagerConverter.PackageManager.PACMAN) {
+                return "pacman";
+            }
+        } catch (Exception e) {
+            // Fall through to default
+        }
+        return "apt";
     }
 }

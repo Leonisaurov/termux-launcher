@@ -7645,9 +7645,11 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
         
         downloadThread[0] = new Thread(() -> {
             try {
-                String apkUrl = "https://github.com/Leonisaurov/termux-launcher/releases/download/nightly-split-latest/termux-app-split.apk";
+                String pmVariant = mPreferences.getPackageManagerPreference();
+                if (pmVariant == null) pmVariant = "apt";
+                String apkUrl = "https://github.com/Leonisaurov/termux-launcher/releases/download/nightly-split-latest/termux-app-" + pmVariant + ".apk";
                 String destDir = "/data/data/com.termux/files/home/storage/downloads";
-                String destPath = destDir + "/termux-split-update.apk";
+                String destPath = destDir + "/termux-" + pmVariant + "-update.apk";
                 
                 new java.io.File(destDir).mkdirs();
                 

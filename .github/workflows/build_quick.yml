@@ -2,19 +2,10 @@ name: Build quick (arm64-only)
 
 on:
   workflow_dispatch:
-    inputs:
-      package_variant:
-        description: 'Package manager variant'
-        required: true
-        default: 'pacman-android-7'
-        type: choice
-        options:
-          - apt-android-7
-          - pacman-android-7
   push:
     branches:
-      - feature/*
-      - dev
+      - 'feature/**'
+      - 'dev'
 
 concurrency:
   group: build-quick-${{ github.ref }}
@@ -22,173 +13,123 @@ concurrency:
 
 env:
   TERMUX_APP_VERSION_NAME: ${{ vars.TERMUX_APP_VERSION_NAME || '0.2.29-hotfix.1' }}
-  TERMUX_PACKAGE_VARIANT: ${{ github.event.inputs.package_variant || 'pacman-android-7' }}
-  TERMUX_APK_VERSION_TAG: ${{ vars.TERMUX_APK_VERSION_TAG || '' }}
 
 jobs:
   build:
+    strategy:
+      matrix:
+        package_variant: [apt-android-7, pacman-android-7]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          cache-read-only: false
+
+      - name: Build APK
+        env:
+          TERMUX_PACKAGE_VARIANT: ${{ matrix.package_variant }}
+        run: |
+          echo "Building with TERMUX_PACKAGE_VARIANT=$TERMUX_PACKAGE_VARIANT"
+          RELEASE_VERSION_NAME="${{ env.TERMUX_APP_VERSION_NAME }}"
+          APK_VERSION_TAG="$RELEASE_VERSION_NAME-$TERMUX_PACKAGE_VARIANT-github-debug"
+
+          ./gradlew assembleDebug \
+            -Pandroid.injected.build.abi=arm64-v8a \
+            -PTERMUX_APK_VERSION_TAG="$APK_VERSION_TAG" \
+            -x testDebugUnitTest -x lintDebug -x lintVitalDebug
+
+          VARIANT_SHORT="${TERMUX_PACKAGE_VARIANT%-android-7}"
+          cp app/build/outputs/apk/debug/app-arm64-v8a-debug.apk \
+             app/build/outputs/apk/debug/termux-app-$VARIANT_SHORT.apk
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: termux-app-${{ matrix.package_variant }}
+          path: app/build/outputs/apk/debug/termux-app-*.apk
+          retention-days: 7
+
+  create-release:
+    needs: build
+    if: github.ref_name != 'dev' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     permissions:
       contents: write
-
     steps:
-      - name: Clone repository
-        uses: actions/checkout@v6
+      - uses: actions/checkout@v4
 
-      - name: Setup Java 21
-        uses: actions/setup-java@v5
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
         with:
-          distribution: 'temurin'
-          java-version: '21'
-          cache: 'gradle'
+          path: apks
 
-      - name: Cache Gradle build cache
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.gradle/caches/
-            ~/.gradle/wrapper/
-          key: gradle-${{ runner.os }}-${{ github.ref_name }}-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties') }}
-          restore-keys: |
-            gradle-${{ runner.os }}-${{ github.ref_name }}-
-            gradle-${{ runner.os }}-main-
-            gradle-${{ runner.os }}-
-
-      - name: Build APK (arm64-v8a only, cached)
-        shell: bash
-        run: |
-          set -euo pipefail
-
-          echo "Setting version vars"
-          GITHUB_SHA="${GITHUB_SHA:-$(git rev-parse HEAD)}"
-          SHORT_SHA="${GITHUB_SHA:0:7}"
-
-          CURRENT_VERSION_NAME="$(grep -m 1 -E '\s+versionName "[^"]+"$' ./app/build.gradle | sed -r 's/\s+versionName "([^"]+)"$/\1/')"
-          if [[ "$CURRENT_VERSION_NAME" == *"+"* ]]; then
-            RELEASE_VERSION_NAME="v${CURRENT_VERSION_NAME}.${SHORT_SHA}"
-          else
-            RELEASE_VERSION_NAME="v${CURRENT_VERSION_NAME}+${SHORT_SHA}"
-          fi
-
-          APK_DIR_PATH="./app/build/outputs/apk/debug"
-          APK_VERSION_TAG="$RELEASE_VERSION_NAME-$TERMUX_PACKAGE_VARIANT-github-debug"
-          APK_VERSION_TAG="${APK_VERSION_TAG//+/-}"
-          APK_BASENAME_PREFIX="termux-app_$APK_VERSION_TAG"
-
-          echo "APK_DIR_PATH=$APK_DIR_PATH" >> $GITHUB_ENV
-          echo "APK_BASENAME_PREFIX=$APK_BASENAME_PREFIX" >> $GITHUB_ENV
-
-          echo "Building APK for '$APK_VERSION_TAG'"
-          echo "Package variant: $TERMUX_PACKAGE_VARIANT"
-          export TERMUX_APP_VERSION_NAME="${RELEASE_VERSION_NAME/v/}"
-          export TERMUX_APK_VERSION_TAG="$APK_VERSION_TAG"
-
-          ./gradlew \
-            --build-cache \
-            --parallel \
-            --max-workers=4 \
-            --no-daemon \
-            assembleDebug \
-            -x testDebugUnitTest \
-            -x lintDebug \
-            -x lintVitalDebug \
-            2>&1 || {
-            echo "::error::Build failed"
-            exit 1
-          }
-
-          echo "Validating APK"
-          APK_FILE="${APK_BASENAME_PREFIX}_arm64-v8a.apk"
-          if [ ! -f "$APK_DIR_PATH/$APK_FILE" ]; then
-            echo "::warning::arm64-v8a APK not found"
-            ls -la "$APK_DIR_PATH/" 2>/dev/null || echo "No APKs found"
-            exit 1
-          fi
-          echo "✅ APK size: $(ls -lh "$APK_DIR_PATH/$APK_FILE" | awk '{print $5}')"
-
-      - name: Rename and prepare APK
-        shell: bash
-        run: |
-          APK_SRC="${{ env.APK_DIR_PATH }}/${{ env.APK_BASENAME_PREFIX }}_arm64-v8a.apk"
-          APK_DST="${{ env.APK_DIR_PATH }}/termux-app-split.apk"
-          if [ -f "$APK_SRC" ]; then
-            cp "$APK_SRC" "$APK_DST"
-            echo "APK prepared: $(ls -lh "$APK_DST" | awk '{print $5}')"
-          else
-            echo "::error::APK not found at $APK_SRC"
-            ls -la "${{ env.APK_DIR_PATH }}/" 2>/dev/null || true
-            exit 1
-          fi
-
-      - name: Upload APK as Artifact
-        uses: actions/upload-artifact@v6
-        with:
-          name: termux-app-split.apk
-          path: ${{ env.APK_DIR_PATH }}/termux-app-split.apk
-          retention-days: 7
-          if-no-files-found: error
-
-      - name: Upload APK to GitHub Release
-        shell: bash
-        run: |
-          set -euo pipefail
-
-          GITHUB_SHA="${GITHUB_SHA:-$(git rev-parse HEAD)}"
-          SHORT_SHA="${GITHUB_SHA:0:7}"
-          BUILD_NUMBER="${{ github.run_number }}"
-          
-          # Read version from VERSION file
-          APP_VERSION=$(grep -m 1 '^VERSION=' VERSION | sed 's/VERSION=//')
-          VARIANT_SHORT="${TERMUX_PACKAGE_VARIANT%-android-7}"
-          RELEASE_TAG="v${APP_VERSION}-${VARIANT_SHORT}-build-${BUILD_NUMBER}"
-
-          echo "📦 Creating release: ${RELEASE_TAG} (app version ${APP_VERSION})"
-
-          # Delete the release if it already exists (from a re-run)
-          gh release delete "$RELEASE_TAG" --yes 2>/dev/null || true
-          git tag -d "$RELEASE_TAG" 2>/dev/null || true
-          git push origin ":refs/tags/$RELEASE_TAG" 2>/dev/null || true
-
-          # Create versioned release
-          gh release create "$RELEASE_TAG" \
-            "${{ env.APK_DIR_PATH }}/termux-app-split.apk#termux-app-split.apk" \
-            --repo ${{ github.repository }} \
-            --title "v${APP_VERSION} Build #${BUILD_NUMBER} (${SHORT_SHA}) — ${TERMUX_PACKAGE_VARIANT}" \
-            --notes "Build from branch \`${{ github.ref_name }}\` at commit \`${SHORT_SHA}\`.
-            
-            ## Cambios
-            - Ve el changelog en [CHANGELOG.md](https://github.com/${{ github.repository }}/blob/${GITHUB_SHA}/CHANGELOG.md)
-            - Versión: v${APP_VERSION} (build ${BUILD_NUMBER})
-            - Variant: ${TERMUX_PACKAGE_VARIANT}
-            
-            ## Tags disponibles
-            - \`${RELEASE_TAG}\` — esta build específica
-            - \`nightly-split-latest\` — última build (actualizada automáticamente)" \
-            --prerelease
-
-          echo "✅ Release created: ${RELEASE_TAG}"
-
-          echo "🏷️ Updating rolling tag..."
-          # Only update the rolling tag for the default (apt) variant
-          if [ "$TERMUX_PACKAGE_VARIANT" = "apt-android-7" ]; then
-            ROLLING_TAG="nightly-split-latest"
-            git tag -f "$ROLLING_TAG" "${{ github.sha }}"
-            git push origin ":refs/tags/$ROLLING_TAG" 2>/dev/null || true
-            git push origin "$ROLLING_TAG"
-          fi
-
-          # Delete old builds (keep only last 10)
-          echo "🧹 Cleaning up old releases (keeping last 10)..."
-          gh release list --repo ${{ github.repository }} --limit 50 \
-            --json tagName,createdAt --jq '.[] | "\(.createdAt) \(.tagName)"' | \
-            sort -r | tail -n +11 | awk '{print $2}' | while read old_tag; do
-            if [ -n "$old_tag" ] && [ "$old_tag" != "nightly-split-latest" ]; then
-              echo "  Deleting old: $old_tag"
-              gh release delete "$old_tag" --yes 2>/dev/null || true
-              git push origin ":refs/tags/$old_tag" 2>/dev/null || true
-            fi
-          done
-
-          echo "✅ Rolling tag updated (if applicable): ${ROLLING_TAG:-none} → ${SHORT_SHA}"
+      - name: Create Release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          RELEASE_VERSION_NAME="${{ env.TERMUX_APP_VERSION_NAME }}"
+          BUILD_NUMBER=${{ github.run_number }}
+          SHORT_SHA="${GITHUB_SHA:0:7}"
+          RELEASE_TAG="v$RELEASE_VERSION_NAME-build-$BUILD_NUMBER"
+
+          # Find all APKs
+          APK_FILES=$(find apks -name "*.apk" -type f)
+
+          if gh release view "$RELEASE_TAG" --repo ${{ github.repository }} &>/dev/null; then
+            echo "Release $RELEASE_TAG already exists, uploading assets..."
+            for apk in $APK_FILES; do
+              gh release upload "$RELEASE_TAG" "$apk" --repo ${{ github.repository }} --clobber
+            done
+          else
+            echo "Creating release $RELEASE_TAG..."
+            gh release create "$RELEASE_TAG" \
+              --repo ${{ github.repository }} \
+              --title "v$RELEASE_VERSION_NAME Build #$BUILD_NUMBER" \
+              --notes "## Build $BUILD_NUMBER
+          - Commit: ${SHORT_SHA}
+          - APT binary: \`termux-app-apt.apk\`
+          - PACMAN binary: \`termux-app-pacman.apk\`
+
+          ### Split Screen Feature
+          - Split vertical/horizontal with Ctrl+B
+          - Focus navigation, resize, zoom
+          - Package Manager Switcher (Settings → Package Manager)" \
+              --prerelease \
+              $APK_FILES
+          fi
+
+          # Update rolling tag
+          ROLLING_TAG="nightly-split-latest"
+          if git ls-remote --tags origin "$ROLLING_TAG" | grep -q .; then
+            gh release delete "$ROLLING_TAG" --yes --repo ${{ github.repository }} || true
+          fi
+          gh release create "$ROLLING_TAG" \
+            --repo ${{ github.repository }} \
+            --title "Nightly Split ($RELEASE_VERSION_NAME)" \
+            --notes "Latest nightly build with both APT and PACMAN variants." \
+            --prerelease \
+            $(find apks -name "*.apk" -type f)
+
+      - name: Cleanup old releases
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          RELEASES=$(gh release list --repo ${{ github.repository }} --limit 50 \
+            --json tagName,isPrerelease --jq '.[] | select(.isPrerelease) | .tagName' \
+            | grep -v "nightly" | sort -V)
+          COUNT=$(echo "$RELEASES" | wc -l)
+          if [ "$COUNT" -gt 10 ]; then
+            echo "$RELEASES" | head -n -10 | while read TAG; do
+              gh release delete "$TAG" --yes --repo ${{ github.repository }} || true
+            done
+          fi
