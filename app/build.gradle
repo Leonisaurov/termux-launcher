@@ -219,7 +219,7 @@ def validateVersionName(String versionName) {
     }
 }
 
-def downloadBootstrap(String arch, String expectedChecksum, String version) {
+def downloadBootstrap(String arch, String expectedChecksum, String version, String repo = "termux/termux-packages") {
     def digest = java.security.MessageDigest.getInstance("SHA-256")
 
     def localUrl = "src/main/cpp/bootstrap-" + arch + ".zip"
@@ -245,7 +245,12 @@ def downloadBootstrap(String arch, String expectedChecksum, String version) {
         }
     }
 
-    def remoteUrl = "https://github.com/termux/termux-packages/releases/download/bootstrap-" + version + "/bootstrap-" + arch + ".zip"
+    def remoteUrl
+    if (version == "latest") {
+        remoteUrl = "https://github.com/${repo}/releases/latest/download/bootstrap-${arch}.zip"
+    } else {
+        remoteUrl = "https://github.com/${repo}/releases/download/bootstrap-${version}/bootstrap-${arch}.zip"
+    }
     logger.quiet("Downloading " + remoteUrl + " ...")
 
     file.parentFile.mkdirs()
@@ -325,10 +330,10 @@ task downloadBootstraps() {
             // Pacman bootstrap from termux-pacman project
             // https://github.com/termux-pacman/termux-packages
             // Uses "latest" release - checksums not pinned for latest
-            downloadBootstrap("aarch64", null, "latest")
-            downloadBootstrap("arm", null, "latest")
-            downloadBootstrap("i686", null, "latest")
-            downloadBootstrap("x86_64", null, "latest")
+            downloadBootstrap("aarch64", null, "latest", "termux-pacman/termux-packages")
+            downloadBootstrap("arm", null, "latest", "termux-pacman/termux-packages")
+            downloadBootstrap("i686", null, "latest", "termux-pacman/termux-packages")
+            downloadBootstrap("x86_64", null, "latest", "termux-pacman/termux-packages")
         } else {
             throw new GradleException("Unsupported TERMUX_PACKAGE_VARIANT \"" + packageVariant + "\"")
         }
