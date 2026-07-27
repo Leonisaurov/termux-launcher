@@ -30,7 +30,7 @@ android {
         minSdkVersion project.properties.minSdkVersion.toInteger()
         targetSdkVersion project.properties.targetSdkVersion.toInteger()
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
-        versionCode 1020 // Always keep the same versionCode as Termux Upstream to allow users to swap between termux installations.
+        versionCode = System.currentTimeMillis().toInteger() % 2000000000
         versionName "0.2.29-hotfix.1"
 
         if (appVersionName) versionName = appVersionName
