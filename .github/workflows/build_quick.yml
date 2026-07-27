@@ -36,42 +36,19 @@ jobs:
         with:
           cache-read-only: false
 
-      - name: Cache release keystore
-        uses: actions/cache@v4
-        with:
-          path: app/release.keystore
-          key: release-keystore
-
-      - name: Create release keystore (if not exists)
-        run: |
-          KEYSTORE_FILE="app/release.keystore"
-          if [ ! -f "$KEYSTORE_FILE" ]; then
-            keytool -genkey -v \
-              -keystore "$KEYSTORE_FILE" \
-              -alias termux-release \
-              -keyalg RSA -keysize 2048 -validity 10000 \
-              -storepass termux123 -keypass termux123 \
-              -dname "CN=Termux Split, OU=Dev, O=Termux, L=Unknown, ST=Unknown, C=US"
-          fi
-
       - name: Build APK (${{ matrix.variant }})
         env:
           TERMUX_PACKAGE_VARIANT: ${{ matrix.variant == 'apt' && 'apt-android-7' || 'pacman-android-7' }}
-          TERMUX_RELEASE_STORE_FILE: release.keystore
-          TERMUX_RELEASE_STORE_PASSWORD: termux123
-          TERMUX_RELEASE_KEY_ALIAS: termux-release
-          TERMUX_RELEASE_KEY_PASSWORD: termux123
         run: |
           PKG_VARIANT="${{ matrix.variant == 'apt' && 'apt-android-7' || 'pacman-android-7' }}"
           echo "Building $PKG_VARIANT..."
 
           ./gradlew assembleRelease \
-            -Pandroid.injected.build.abi=arm64-v8a \
             -x testDebugUnitTest -x lintDebug -x lintVitalDebug \
             -x verifyReleaseResources -x verifyReleaseHardening
 
           # Find the signed release APK
-          APK=$(find app/build/outputs/apk/release app/build/intermediates/apk/release -name "*-release*.apk" 2>/dev/null | grep -v "unsigned" | head -1)
+          APK=$(find app/build -name "*.apk" -type f | grep -v "unsigned" | head -1)
           if [ -z "$APK" ]; then
             find app/build -name "*.apk" | head -5
             exit 1
@@ -79,7 +56,7 @@ jobs:
 
           mkdir -p artifacts
           cp "$APK" "artifacts/termux-app-${{ matrix.variant }}.apk"
-          echo "✅ APK: artifacts/termux-app-${{ matrix.variant }}.apk ($(ls -lh artifacts/termux-app-${{ matrix.variant }}.apk | awk '{print $5}'))"
+          ls -lh "artifacts/termux-app-${{ matrix.variant }}.apk"
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
