@@ -42,15 +42,30 @@ jobs:
           echo "Building with TERMUX_PACKAGE_VARIANT=$TERMUX_PACKAGE_VARIANT"
           RELEASE_VERSION_NAME="${{ env.TERMUX_APP_VERSION_NAME }}"
           APK_VERSION_TAG="$RELEASE_VERSION_NAME-$TERMUX_PACKAGE_VARIANT-github-debug"
-
+          
           ./gradlew assembleDebug \
             -Pandroid.injected.build.abi=arm64-v8a \
             -PTERMUX_APK_VERSION_TAG="$APK_VERSION_TAG" \
             -x testDebugUnitTest -x lintDebug -x lintVitalDebug
-
+          
+          # Find the APK dynamically
+          APK_DIR="app/build/outputs/apk/debug"
           VARIANT_SHORT="${TERMUX_PACKAGE_VARIANT%-android-7}"
-          cp app/build/outputs/apk/debug/app-arm64-v8a-debug.apk \
-             app/build/outputs/apk/debug/termux-app-$VARIANT_SHORT.apk
+          
+          echo "Looking for APK in $APK_DIR..."
+          ls -la "$APK_DIR/"
+          
+          # Find the arm64 APK (might be named differently in different Gradle versions)
+          APK_FILE=$(find "$APK_DIR" -name "*.apk" -type f | head -1)
+          if [ -z "$APK_FILE" ]; then
+            echo "::error::No APK found in $APK_DIR"
+            ls -la "$APK_DIR/" 2>/dev/null || echo "Directory does not exist"
+            exit 1
+          fi
+          
+          echo "Found APK: $APK_FILE"
+          cp "$APK_FILE" "$APK_DIR/termux-app-$VARIANT_SHORT.apk"
+          echo "Copied to: termux-app-$VARIANT_SHORT.apk"
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
