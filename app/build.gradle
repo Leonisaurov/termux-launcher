@@ -30,7 +30,7 @@ android {
         minSdkVersion project.properties.minSdkVersion.toInteger()
         targetSdkVersion project.properties.targetSdkVersion.toInteger()
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
-        versionCode = System.currentTimeMillis().toInteger() % 2000000000
+        versionCode = (int) (System.currentTimeMillis() % 2000000000)
         versionName "0.2.29-hotfix.1"
 
         if (appVersionName) versionName = appVersionName
