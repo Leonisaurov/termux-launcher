@@ -23,6 +23,7 @@ import com.termux.shared.android.PackageUtils;
 import com.termux.shared.termux.TermuxConstants;
 import com.termux.shared.termux.TermuxUtils;
 import com.termux.shared.termux.shell.command.environment.TermuxShellEnvironment;
+import com.termux.shared.settings.preferences.TermuxAppSharedPreferences;
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileOutputStream;
@@ -68,6 +69,28 @@ final class TermuxInstaller {
      * Performs bootstrap setup if necessary.
      */
     static void setupBootstrapIfNeeded(final Activity activity, final Runnable whenDone) {
+        // Verificar que el gestor de paquetes esté configurado
+        TermuxAppSharedPreferences prefs = TermuxAppSharedPreferences.build(activity);
+        if (prefs != null && prefs.getPackageManagerPreference() == null) {
+            // Mostrar diálogo de selección en UI thread
+            activity.runOnUiThread(() -> {
+                PackageManagerDialog.show(activity, new PackageManagerDialog.PackageManagerCallback() {
+                    @Override
+                    public void onPackageManagerSelected(String packageManager) {
+                        // Una vez seleccionado, reintentar setupBootstrapIfNeeded
+                        setupBootstrapIfNeeded(activity, whenDone);
+                    }
+
+                    @Override
+                    public void onCancel() {
+                        // No debería ocurrir porque el diálogo no es cancelable
+                        activity.finish();
+                    }
+                });
+            });
+            return; // Esperar a que el usuario elija
+        }
+
         String bootstrapErrorMessage;
         Error filesDirectoryAccessibleError;
         // This will also call Context.getFilesDir(), which should ensure that termux files directory
@@ -150,7 +173,7 @@ final class TermuxInstaller {
                     Logger.logInfo(LOG_TAG, "Extracting bootstrap zip to prefix staging directory \"" + TERMUX_STAGING_PREFIX_DIR_PATH + "\".");
                     final byte[] buffer = new byte[8096];
                     final List<Pair<String, String>> symlinks = new ArrayList<>(50);
-                    final URL zipUrl = determineZipUrl();
+                    final URL zipUrl = determineZipUrl(activity);
                     try (ZipInputStream zipInput = new ZipInputStream(zipUrl.openStream())) {
                         ZipEntry zipEntry;
                         while ((zipEntry = zipInput.getNextEntry()) != null) {
@@ -359,9 +382,20 @@ final class TermuxInstaller {
         return FileUtils.createDirectoryFile(directory.getAbsolutePath());
     }
 
-    private static URL determineZipUrl() throws MalformedURLException {
+    private static URL determineZipUrl(Activity activity) throws MalformedURLException {
         String archName = determineTermuxArchName();
-        String url = "https://github.com/termux/termux-packages/releases/latest/download/bootstrap-" + archName + ".zip";
+        String baseUrl;
+
+        TermuxAppSharedPreferences prefs = TermuxAppSharedPreferences.build(activity);
+        String packageManager = (prefs != null) ? prefs.getPackageManagerPreference() : "apt";
+
+        if ("pacman".equals(packageManager)) {
+            baseUrl = "https://github.com/termux-pacman/termux-packages/releases/latest/download";
+        } else {
+            baseUrl = "https://github.com/termux/termux-packages/releases/latest/download";
+        }
+
+        String url = baseUrl + "/bootstrap-" + archName + ".zip";
         return new URL(url);
     }
 

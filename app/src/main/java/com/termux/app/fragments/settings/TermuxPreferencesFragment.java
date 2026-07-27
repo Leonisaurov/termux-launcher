@@ -1,5 +1,6 @@
 package com.termux.app.fragments.settings;
 
+import android.app.AlertDialog;
 import android.content.Context;
 import android.os.Bundle;
 import android.widget.Toast;
@@ -9,6 +10,7 @@ import androidx.preference.PreferenceDataStore;
 import androidx.preference.PreferenceManager;
 import com.termux.R;
 import com.termux.app.fragments.settings.SettingsLayoutUtils;
+import com.termux.pkgconv.PackageManagerConverter;
 import com.termux.shared.termux.TermuxConstants;
 import com.termux.shared.termux.settings.preferences.TermuxAppSharedPreferences;
 import java.io.File;
@@ -32,6 +34,71 @@ public class TermuxPreferencesFragment extends MaterialPreferenceFragment {
         if (installXsel != null) {
             installXsel.setOnPreferenceClickListener(pref -> {
                 installXselScript();
+                return true;
+            });
+        }
+
+        Preference packageManager = findPreference("package_manager");
+        if (packageManager != null) {
+            packageManager.setOnPreferenceClickListener(pref -> {
+                Context ctx = getContext();
+                if (ctx == null) return false;
+
+                final TermuxAppSharedPreferences prefs = TermuxAppSharedPreferences.build(ctx, true);
+                String currentPM = prefs.getPackageManagerPreference();
+                if (currentPM == null) currentPM = "apt";
+
+                String targetPM = "apt".equals(currentPM) ? "pacman" : "apt";
+                String targetName = "pacman".equals(targetPM) ? "Pacman" : "APT";
+
+                new AlertDialog.Builder(ctx)
+                    .setTitle("Switch Package Manager")
+                    .setMessage("Switch from " + currentPM.toUpperCase()
+                        + " to " + targetName + "?\n\n"
+                        + "This will convert your installed packages database and swap package manager binaries.\n"
+                        + "Your home directory will NOT be affected.\n\n"
+                        + "A backup will be created before the conversion.")
+                    .setPositiveButton("Switch to " + targetName, (dialog, which) -> {
+                        new Thread(() -> {
+                            try {
+                                PackageManagerConverter converter = new PackageManagerConverter();
+                                converter.setProgressCallback(new PackageManagerConverter.ProgressCallback() {
+                                    @Override
+                                    public void onProgress(String message, int percent) {
+                                    }
+                                    @Override
+                                    public void onError(String message, Exception e) {
+                                        if (getActivity() != null) {
+                                            getActivity().runOnUiThread(() -> {
+                                                new AlertDialog.Builder(getActivity())
+                                                    .setTitle("Conversion Failed")
+                                                    .setMessage(message + "\n\nRollback has been attempted.")
+                                                    .setPositiveButton("OK", null)
+                                                    .show();
+                                            });
+                                        }
+                                    }
+                                    @Override
+                                    public void onComplete(boolean success) {
+                                        if (getActivity() != null && success) {
+                                            getActivity().runOnUiThread(() -> {
+                                                prefs.setPackageManagerPreference(targetPM);
+                                                pref.setSummary("Current: " + targetPM);
+                                            });
+                                        }
+                                    }
+                                });
+                                PackageManagerConverter.PackageManager target =
+                                    "pacman".equals(targetPM) ?
+                                    PackageManagerConverter.PackageManager.PACMAN :
+                                    PackageManagerConverter.PackageManager.APT;
+                                converter.convert(target);
+                            } catch (Exception e) {
+                            }
+                        }).start();
+                    })
+                    .setNegativeButton("Cancel", null)
+                    .show();
                 return true;
             });
         }

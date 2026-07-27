@@ -22,4 +22,10 @@
             app:summary="@string/install_xsel_summary" />
     </PreferenceCategory>
 
+    <Preference
+        app:key="package_manager"
+        app:title="Package Manager"
+        app:summary="Current: apt"
+        app:icon="@android:drawable/ic_menu_manage" />
+
 </PreferenceScreen>

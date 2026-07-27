@@ -1,226 +1,390 @@
-# Task Checklist: Split Drag & Drop + MiniSplitView
+# Package Manager Switcher - Task List
 
-## Phase 1: Foundation (MiniSplitView + XML)
+## Phase 1: Model + Parsers (Foundation)
 
-### Task 1: Create MiniSplitView.java
+### Task 1: PackageModel y clases del modelo canónico
+**Descripción:** Crear todas las clases del modelo canónico en `com.termux.pkgconv.model`
 
-**Description:** Custom View that draws a miniature diagram of the split layout.
+**Archivos:**
+- `app/src/main/java/com/termux/pkgconv/model/PackageModel.java`
+- `app/src/main/java/com/termux/pkgconv/model/Dependency.java`
+- `app/src/main/java/com/termux/pkgconv/model/FilePath.java`
+- `app/src/main/java/com/termux/pkgconv/model/Conffile.java`
+- `app/src/main/java/com/termux/pkgconv/model/Scripts.java`
+- `app/src/main/java/com/termux/pkgconv/model/InstallReason.java`
 
-**Acceptance criteria:**
-- [ ] View draws proportional rectangles matching split tree layout
-- [ ] Focused pane has a green border highlight
-- [ ] Shows focused session title below the diagram
-- [ ] Updates when layout changes (pane count, focus, session title)
-- [ ] Single pane shows one rectangle (no split = simple display)
-- [ ] View extends `View` and belongs to `com.termux.app.terminal.split` package
-- [ ] Exposes `update(SplitNode root, int focusedPaneIndex, String sessionTitle)` public method
-- [ ] Exposes `setSessionTitle(String title)` for partial updates without tree walk
+**Criterios:**
+- [ ] PackageModel tiene todos los campos del spec
+- [ ] Dependency soporta name, operator (GE/LE/GT/LT/EQ/ANY), version
+- [ ] FilePath tiene path (relativo), md5sum, isDirectory
+- [ ] Conffile tiene path y md5sum
+- [ ] Scripts tiene preInst, postInst, preRm, postRm
+- [ ] InstallReason enum: EXPLICIT, AUTO, UNKNOWN
 
-**Verification:**
-- [ ] Opens drawer with splits → sees mini diagram matching layout
-- [ ] Changes focus → mini updates highlight
-- [ ] Closes pane → mini updates shape
-- [ ] Single pane shows one rectangle (no split = simple display)
-
-**Dependencies:** None
-
-**Files:**
-- `app/src/main/java/com/termux/app/terminal/split/MiniSplitView.java` (NEW)
+**Dependencias:** Ninguna
+**Estimado:** S (6 clases pequeñas)
+**Estado:** PENDING
 
 ---
 
-### Task 2: Create mini_split_background.xml
+### Task 2: DpkgParser
+**Descripción:** Parsear /var/lib/dpkg/status y /var/lib/dpkg/info/* → List<PackageModel>
 
-**Description:** Shape drawable background for MiniSplitView.
+**Archivos:**
+- `app/src/main/java/com/termux/pkgconv/parser/DpkgParser.java`
 
-**Acceptance criteria:**
-- [ ] Rounded corners (8dp)
-- [ ] Semi-transparent background matching drawer theme
-- [ ] Subtle border/stroke (1dp, semi-transparent)
-- [ ] Drawable placed in `res/drawable/` directory
+**Criterios:**
+- [ ] Divide status en stanzas por \n\n
+- [ ] Soportar multi-línea (continuación con espacio)
+- [ ] Extraer Package, Status, Version, Depends, Conffiles, Description, etc.
+- [ ] Parsear Depends con versionado: `pkg (>= 1.0)` → Dependency
+- [ ] Leer /var/lib/dpkg/info/<name>.list → rutas absolutas a relativas
+- [ ] Leer /var/lib/dpkg/info/<name>.md5sums → hashes
+- [ ] Leer scripts .prerm, .postrm, .preinst, .postinst
+- [ ] Convertir Installed-Size de KiB a bytes
 
-**Verification:**
-- [ ] MiniSplitView renders with rounded corners
-- [ ] Background blends with drawer theme
-- [ ] Stroke border visible on light and dark themes
-
-**Dependencies:** None
-
-**Files:**
-- `app/src/main/res/drawable/mini_split_background.xml` (NEW)
-
----
-
-### Task 3: Modify activity_termux.xml
-
-**Description:** Add MiniSplitView to drawer layout.
-
-**Acceptance criteria:**
-- [ ] MiniSplitView appears in drawer between settings button and session list
-- [ ] Height is 120dp
-- [ ] Has background drawable (`@drawable/mini_split_background`)
-- [ ] Bottom margin before session list (8dp)
-- [ ] Initially `android:visibility="gone"`
-- [ ] `android:id="@+id/mini_split_view"`
-
-**Verification:**
-- [ ] Drawer layout shows MiniSplitView in correct position
-- [ ] Layout respects the 120dp height
-- [ ] Background drawable applied correctly
-- [ ] Build succeeds without errors
-
-**Dependencies:** Task 1 (needs the View class), Task 2 (needs the background drawable)
-
-**Files:**
-- `app/src/main/res/layout/activity_termux.xml`
+**Dependencias:** Task 1
+**Estimado:** M (~250 líneas)
+**Estado:** PENDING
 
 ---
 
-## Phase 2: Session Grouping
+### Task 3: AlpmParser
+**Descripción:** Parsear /var/lib/pacman/local/*/ → List<PackageModel>
 
-### Task 4: Refactor TermuxSessionsListViewController.java
+**Archivos:**
+- `app/src/main/java/com/termux/pkgconv/parser/AlpmParser.java`
 
-**Description:** Add grouped list model with headers for "Split Window" and "Standalone".
+**Criterios:**
+- [ ] Lista subdirectorios /var/lib/pacman/local/*/
+- [ ] Algoritmo reverse-split para name-version-rel:
+  - Último segmento numérico = pkgrel (si solo dígitos)
+  - Penúltimo con dígitos = version
+  - Resto unido por '-' = name
+- [ ] Parsear desc: secciones %KEY%\nvalores\n\n
+- [ ] Parsear files: %FILES% (rutas relativas, / en directorios) + %BACKUP% (ruta hash)
+- [ ] Leer depends e install si existen
+- [ ] Mapear %REASON% 0→AUTO, 1→EXPLICIT
 
-**Acceptance criteria:**
-- [ ] Sessions in the split tree appear under "Split Window" header with pane labels (Pane 1, Pane 2, etc.)
-- [ ] Sessions NOT in the split tree appear under "Standalone" header
-- [ ] Separator line between groups
-- [ ] Standalone sessions have drag icon visible
-- [ ] Split pane sessions show pane label (e.g. "Pane 1") instead of drag icon
-- [ ] List updates correctly when sessions change (`notifyDataSetChanged`)
-- [ ] Only one group header shown if there are no sessions in the other group
-- [ ] Backward compatible: tapping session still switches to it
-- [ ] Adapter extends `BaseAdapter` (not `ArrayAdapter`)
-- [ ] Inner `ListItem` class with `TYPE_HEADER`, `TYPE_SESSION`, `TYPE_SEPARATOR`
-- [ ] `getViewTypeCount()` returns 3
-- [ ] Pane labels follow leaf order (Pane 1, Pane 2, ...)
-
-**Verification:**
-- [ ] Drawer shows grouped list matching current split state
-- [ ] Changing layout (split/close) updates groups
-- [ ] No standalone sessions → "Split Window" header only
-- [ ] No split sessions → "Standalone" header only
-- [ ] Tapping a session item switches to it and closes drawer
-
-**Dependencies:** Task 5 (needs the item layout with drag icon and pane label)
-
-**Files:**
-- `app/src/main/java/com/termux/app/terminal/TermuxSessionsListViewController.java`
+**Dependencias:** Task 1
+**Estimado:** M (~200 líneas)
+**Estado:** PENDING
 
 ---
 
-### Task 5: Modify item_terminal_sessions_list.xml
+### Task 4: Tests de parsers
+**Descripción:** Crear datos mock y tests para ambos parsers
 
-**Description:** Add drag icon and pane label to session list items.
+**Archivos:**
+- `app/src/test/java/com/termux/pkgconv/parser/DpkgParserTest.java`
+- `app/src/test/java/com/termux/pkgconv/parser/AlpmParserTest.java`
+- Datos mock en `app/src/test/resources/pkgconv/mock/dpkg/`
+- Datos mock en `app/src/test/resources/pkgconv/mock/alpm/`
 
-**Acceptance criteria:**
-- [ ] Layout has `drag_icon` TextView (Visibility: GONE by default)
-- [ ] Layout has `pane_label` TextView (Visibility: GONE by default)
-- [ ] Session title preserved as `session_title` TextView
-- [ ] Proper layout with Left-to-Right: `[drag_icon] [pane_label] [session_title]`
-- [ ] Drag icon shows Unicode drag handle character
-- [ ] Pane label centered, green accent color
-- [ ] All existing styling preserved (padding, textSize, background)
+**Criterios:**
+- [ ] DpkgParser produce PackageModel correcto desde datos mock
+- [ ] AlpmParser produce PackageModel correcto desde datos mock
+- [ ] Los campos se mapean correctamente (version, arch, depends, files)
 
-**Verification:**
-- [ ] Standalone sessions show drag icon in list
-- [ ] Split sessions show pane label in list
-- [ ] Session title still displayed correctly
-- [ ] Build succeeds without errors
-
-**Dependencies:** None
-
-**Files:**
-- `app/src/main/res/layout/item_terminal_sessions_list.xml`
+**Dependencias:** Task 2, Task 3
+**Estimado:** M (3-5 archivos)
+**Estado:** PENDING
 
 ---
 
-## Phase 3: Drag & Drop
+## Phase 2: Writers + Converter (Core)
 
-### Task 6: Modify TermuxSplitLayout.java for drop handling
+### Task 5: DpkgWriter
+**Descripción:** Escribir List<PackageModel> → /var/lib/dpkg/status + /var/lib/dpkg/info/*
 
-**Description:** Add `OnDragListener`, `determineDropOrientation()`, and pending session support.
+**Archivos:**
+- `app/src/main/java/com/termux/pkgconv/writer/DpkgWriter.java`
 
-**Acceptance criteria:**
-- [ ] Layout accepts drag events with "termux-session" MIME type
-- [ ] `determineDropOrientation(x, y)` returns `VERTICAL` or `HORIZONTAL` based on radial model
-- [ ] On `ACTION_DROP`: calls `splitFocusedPane(orientation, pendingSession)`
-- [ ] `setPendingDragSession(TerminalSession)` stores session for upcoming split
-- [ ] Pending session is cleaned up in `try/finally` after drop
-- [ ] Existing `splitFocusedPane(Orientation)` still works without pending session
-- [ ] New overloaded `splitFocusedPane(Orientation, TerminalSession)` attaches the given session
-- [ ] Drag outside pane bounds → defaults to `VERTICAL` split
-- [ ] No visual artifacts during drag (no permanent overlay)
+**Criterios:**
+- [ ] Escribe /var/lib/dpkg/status con stanzas correctamente formateadas
+- [ ] Escribe /var/lib/dpkg/info/<name>.list con rutas absolutas
+- [ ] Escribe /var/lib/dpkg/info/<name>.md5sums
+- [ ] Escribe scripts .prerm, .postrm, .preinst, .postinst
+- [ ] Escribe Conffiles campo en status + <name>.conffiles
+- [ ] Convierte installedSize de bytes a KiB para Installed-Size
 
-**Verification:**
-- [ ] Drag session from drawer onto left half → vertical split
-- [ ] Drag session from drawer onto top half → horizontal split
-- [ ] Drag session from drawer onto right half → vertical split
-- [ ] Drag session from drawer onto bottom half → horizontal split
-- [ ] Drop outside terminal area → no split
-- [ ] Existing keyboard splits (Ctrl+B % / Ctrl+B ") still work correctly
-
-**Dependencies:** None (but must coordinate with Task 7 for wiring)
-
-**Files:**
-- `app/src/main/java/com/termux/app/terminal/split/TermuxSplitLayout.java`
+**Dependencias:** Task 1
+**Estimado:** M (~250 líneas)
+**Estado:** PENDING
 
 ---
 
-### Task 7: Modify TermuxActivity.java for wiring
+### Task 6: AlpmWriter
+**Descripción:** Escribir List<PackageModel> → /var/lib/pacman/local/*/
 
-**Description:** Connect MiniSplitView updates, drag initiation from adapter, and drop handling.
+**Archivos:**
+- `app/src/main/java/com/termux/pkgconv/writer/AlpmWriter.java`
 
-**Acceptance criteria:**
-- [ ] MiniSplitView receives layout change callbacks (`onPaneCountChanged`, `onPaneFocused`)
-- [ ] `mMiniSplitView` field declared and initialized from layout
-- [ ] MiniSplitView visibility toggles: shown when `paneCount > 1`, hidden for single pane
-- [ ] Long-press on standalone session items starts drag-and-drop via `startDragAndDrop()`
-- [ ] Drag creates `ClipData` with session index and `"termux-session"` MIME type
-- [ ] `DragShadowBuilder` created from the list item view
-- [ ] On `ACTION_DROP`: session index extracted from `ClipData`, `TerminalSession` retrieved, pending session set, split triggered
-- [ ] Drawer closes after successful drop
-- [ ] `termuxSessionListNotifyUpdated()` called after drop to update list
+**Criterios:**
+- [ ] Crea /var/lib/pacman/local/<name>-<ver>-<rel>/desc con secciones %KEY%
+- [ ] Crea /var/lib/pacman/local/<name>-<ver>-<rel>/files con %FILES% y %BACKUP%
+- [ ] Crea depends si hay dependencias
+- [ ] Crea install si hay scripts (post_install, pre_remove, post_remove)
+- [ ] Rutas relativas, directorios con / al final
 
-**Verification:**
-- [ ] Long-press standalone session → drag starts with shadow
-- [ ] Drag shadow follows finger across screen
-- [ ] Drop on terminal → split created with the dragged session
-- [ ] New pane shows the dragged session, not a new empty session
-- [ ] MiniSplitView updates after split (shows new pane highlight)
-- [ ] Drawer closes after successful drop
-- [ ] MiniSplitView hidden when only one pane exists
-- [ ] MiniSplitView shown when pane count > 1
-
-**Dependencies:** All previous tasks (1–6)
-
-**Files:**
-- `app/src/main/java/com/termux/app/TermuxActivity.java`
+**Dependencias:** Task 1
+**Estimado:** M (~250 líneas)
+**Estado:** PENDING
 
 ---
 
-## Integration Verification
+### Task 7: PackageManagerConverter
+**Descripción:** Orquestador que coordina parseo, swap y escritura
 
-### Overall System Check
-- [ ] App launches without crashes
-- [ ] Drawer opens/closes smoothly
-- [ ] MiniSplitView renders correctly on first draw
-- [ ] Session list correctly grouped
-- [ ] Drag & drop works end-to-end
-- [ ] All existing keyboard shortcuts still function
-- [ ] Logcat shows no exceptions during drag/drop
-- [ ] Orientation change does not break split state
+**Archivos:**
+- `app/src/main/java/com/termux/pkgconv/PackageManagerConverter.java`
 
-### Regression Tests
-- [ ] Single pane: keyboard works, session list shows standalone
-- [ ] Split (Ctrl+B %): creates horizontal split, MiniSplitView updates
-- [ ] Split (Ctrl+B "): creates vertical split, MiniSplitView updates
-- [ ] Focus next/previous (Ctrl+B o / ;): updates MiniSplitView highlight
-- [ ] Close pane (Ctrl+B x): MiniSplitView updates, list re-groups
-- [ ] Resize pane (Ctrl+B arrows): MiniSplitView updates proportions
-- [ ] Session finishes (exit) → pane closed automatically
-- [ ] Settings button still opens settings
-- [ ] New session button still creates new session
-- [ ] Keyboard toggle button still works
-- [ ] Update APK button still works
+**Criterios:**
+- [ ] detectSourcePM(): detecta si existe dpkg/ o pacman/ DB
+- [ ] convert(targetPM): orquesta APT→PACMAN o PACMAN→APT
+- [ ] Implementa steps: BACKUP_READY(0), PARSED(1), SWAPPED(2), WRITTEN(3), CLEANUP_DONE(4), COMPLETE(5)
+- [ ] Escribe y lee lock file en $PREFIX/var/run/pm-convert.lock
+- [ ] Crea backup antes de modificar
+- [ ] Restaura backup si hay error
+- [ ] Manejo de dependencias OR (heurística)
+
+**Dependencias:** Task 2, Task 3, Task 5, Task 6, Task 10
+**Estimado:** M (~150 líneas)
+**Estado:** PENDING
+
+---
+
+### Task 8: Tests de round-trip
+**Descripción:** Tests de conversión bidireccional
+
+**Archivos:**
+- `app/src/test/java/com/termux/pkgconv/PackageManagerConverterTest.java`
+
+**Criterios:**
+- [ ] dpkg mock → convertir a ALPM → convertir a dpkg → mismo resultado
+- [ ] ALPM mock → convertir a dpkg → convertir a ALPM → mismo resultado
+- [ ] Paquetes con dependencias OR se manejan correctamente
+- [ ] Paquetes con scripts se convierten correctamente
+
+**Dependencias:** Task 7
+**Estimado:** M (3-5 archivos)
+**Estado:** PENDING
+
+---
+
+## Phase 3: Bootstrap + Swapper (Infrastructure)
+
+### Task 9: TermuxBootstrap - descomentar PACMAN
+**Descripción:** Activar los enums de PackageManager y PackageVariant para PACMAN
+
+**Archivos:**
+- `termux-shared/src/main/java/com/termux/shared/termux/TermuxBootstrap.java`
+
+**Criterios:**
+- [ ] PackageManager.PACMAN("pacman") activo
+- [ ] PackageVariant.PACMAN_ANDROID_7("pacman-android-7") activo
+- [ ] isAppPackageManagerPACMAN() devuelve true cuando corresponde
+- [ ] isAppPackageVariantPACMANAndroid7() devuelve true cuando corresponde
+- [ ] No rompe la funcionalidad existente de APT
+
+**Dependencias:** Ninguna
+**Estimado:** XS (1 archivo, cambios mínimos)
+**Estado:** PENDING
+
+---
+
+### Task 10: BootstrapSwapper
+**Descripción:** Intercambiar binarios y config del gestor extrayendo del ZIP destino
+
+**Archivos:**
+- `app/src/main/java/com/termux/pkgconv/BootstrapSwapper.java`
+
+**Criterios:**
+- [ ] Extrae ZIP bootstrap destino de assets/
+- [ ] Para APT→PACMAN: borra bin/{apt,dpkg,pkg}, lib/apt/; extrae bin/pacman*, etc/pacman.d/
+- [ ] Para PACMAN→APT: borra bin/pacman*, etc/pacman.d/; extrae bin/{apt,dpkg,pkg}, etc/apt/, lib/apt/
+- [ ] NO toca /var/lib/ (responsabilidad de writers)
+- [ ] NO toca home/
+- [ ] Preserva permisos de archivos existentes
+- [ ] Verifica que los binarios críticos se copiaron correctamente
+
+**Dependencias:** Task 9
+**Estimado:** M (~200 líneas)
+**Estado:** PENDING
+
+---
+
+### Task 11: app/build.gradle - variant pacman
+**Descripción:** Añadir soporte para pacman-android-7 en el build system
+
+**Archivos:**
+- `app/build.gradle`
+
+**Criterios:**
+- [ ] "pacman-android-7" en lista de valores soportados
+- [ ] Bloque downloadBootstraps para pacman con URLs de termux-pacman
+- [ ] Checksums SHA-256 para cada arquitectura
+- [ ] Build exitoso con TERMUX_PACKAGE_VARIANT=pacman-android-7
+
+**Dependencias:** Task 9
+**Estimado:** S (1 archivo)
+**Estado:** PENDING
+
+---
+
+## Phase 4: UI Integration
+
+### Task 12: PackageManagerDialog + TermuxInstaller
+**Descripción:** Diálogo de elección en primera ejecución + integración en installer
+
+**Archivos:**
+- `app/src/main/java/com/termux/app/PackageManagerDialog.java` (NUEVO)
+- `app/src/main/java/com/termux/app/TermuxInstaller.java` (MODIFICAR)
+
+**Criterios:**
+- [ ] Dialog muestra "Choose Package Manager" con apt (recomendado) y pacman
+- [ ] Al elegir, guarda en TermuxAppSharedPreferences
+- [ ] TermuxInstaller.setupBootstrapIfNeeded() verifica preferencia antes de descargar
+- [ ] Si no hay preferencia guardada → muestra dialog
+- [ ] Usa la preferencia para elegir URL de bootstrap (termux-packages vs termux-pacman)
+- [ ] Compatible con el flujo existente (ProgressDialog, extracción, second-stage)
+
+**Dependencias:** Task 9, Task 13
+**Estimado:** M (2 archivos)
+**Estado:** PENDING
+
+---
+
+### Task 13: TermuxAppSharedPreferences
+**Descripción:** Getters/setters para la preferencia de package manager
+
+**Archivos:**
+- `termux-shared/src/main/java/com/termux/shared/settings/preferences/TermuxAppSharedPreferences.java`
+
+**Criterios:**
+- [ ] KEY_PACKAGE_MANAGER = "package_manager"
+- [ ] getPackageManagerPreference() devuelve "apt", "pacman" o null
+- [ ] setPackageManagerPreference(String) guarda el valor
+- [ ] Valores válidos: "apt" y "pacman"
+- [ ] Compatible con SharedPreferences existente
+
+**Dependencias:** Ninguna
+**Estimado:** XS (1 archivo, pocas líneas)
+**Estado:** PENDING
+
+---
+
+### Task 14: Settings UI
+**Descripción:** Añadir preferencia de Package Manager en Settings
+
+**Archivos:**
+- `app/src/main/res/xml/termux_preferences.xml` (MODIFICAR)
+- Fragment de Settings correspondiente
+
+**Criterios:**
+- [ ] Nueva entrada "Package Manager" en lista de preferencias
+- [ ] Summary muestra "Current: apt" o "Current: pacman"
+- [ ] Al hacer clic: diálogo "Switch to pacman?" con advertencia
+- [ ] Al confirmar: ejecuta PackageManagerConverter con ProgressDialog
+- [ ] ProgressDialog muestra pasos: "Parsing...", "Swapping...", "Writing..."
+- [ ] Al terminar: toast de éxito y actualiza summary
+- [ ] Si falla: muestra error y restaura
+
+**Dependencias:** Task 7, Task 10, Task 13
+**Estimado:** M (2-3 archivos)
+**Estado:** PENDING
+
+---
+
+### Task 15: TermuxShellEnvironment
+**Descripción:** Exponer variable de entorno del gestor de paquetes
+
+**Archivos:**
+- `termux-shared/src/main/java/com/termux/shared/termux/TermuxShellEnvironment.java`
+- `termux-shared/src/main/java/com/termux/app/termux/TermuxAppShellEnvironment.java`
+
+**Criterios:**
+- [ ] Descomentar ENV_TERMUX_APP__PACKAGE_MANAGER
+- [ ] Descomentar ENV_TERMUX_APP__PACKAGE_VARIANT
+- [ ] Escribir en termux.env: TERMUX_APP__PACKAGE_MANAGER=apt|pacman
+- [ ] Escribir en termux.env: TERMUX_APP__PACKAGE_VARIANT=apt-android-7|pacman-android-7
+
+**Dependencias:** Task 9
+**Estimado:** XS (2 archivos, cambios mínimos)
+**Estado:** PENDING
+
+---
+
+## Phase 5: Rollback + Polish
+
+### Task 16: Sistema de rollback
+**Descripción:** Lock file, backup, detección de inconsistencia y restauración
+
+**Archivos:**
+- `app/src/main/java/com/termux/pkgconv/PackageManagerConverter.java` (ya incluye rollback)
+- `app/src/main/java/com/termux/app/TermuxActivity.java` (detección en onCreate)
+
+**Criterios:**
+- [ ] Lock file en $PREFIX/var/run/pm-convert.lock (JSON con step, source, target, backup_path, timestamp)
+- [ ] Backup comprimido en $PREFIX/var/backups/pm-convert/ con timestamp
+- [ ] TermuxActivity.onCreate() verifica si hay lock con step < 5
+- [ ] Restaura según el step:
+  - step 0-1: backup existe pero nada se tocó → restaurar backup, borrar lock
+  - step 2: swapper ejecutado → restaurar backup completo
+  - step 3-4: writers parciales → restaurar backup completo
+  - step 5: lock residual → borrar lock y continuar
+- [ ] Validación post-restauración (status file existe o local/ tiene contenido)
+- [ ] Backup incluye /var/lib/{dpkg,pacman}/ y /etc/{apt,pacman.d}/
+
+**Dependencias:** Task 7
+**Estimado:** M (2 archivos)
+**Estado:** PENDING
+
+---
+
+### Task 17: Progress + Error handling
+**Descripción:** Indicadores de progreso y manejo de errores
+
+**Archivos:**
+- Modificaciones en Settings fragment y PackageManagerConverter
+
+**Criterios:**
+- [ ] ProgressDialog con título "Converting Package Manager"
+- [ ] Steps visibles: "Backing up...", "Reading packages...", "Swapping binaries...", "Writing database...", "Cleaning up..."
+- [ ] Si falla: dialog muestra error específico y botón "Restore"
+- [ ] Restore exitoso: toast "Restored to previous state"
+- [ ] Tiempo estimado se muestra si es posible
+
+**Dependencias:** Task 14, Task 16
+**Estimado:** S (1-2 archivos)
+**Estado:** PENDING
+
+---
+
+### Task 18: Testing checklist final
+**Descripción:** Verificación manual end-to-end
+
+**Criterios:**
+- [ ] APT→PACMAN: 10 paquetes de prueba se convierten correctamente
+- [ ] PACMAN→APT: 10 paquetes de prueba se convierten correctamente
+- [ ] Interrupción (kill app) a mitad: al reiniciar restaura backup
+- [ ] Primera instalación: dialog aparece y descarga bootstrap correcto
+- [ ] Variable TERMUX_APP__PACKAGE_MANAGER visible en `env`
+- [ ] Settings muestra gestor actual
+- [ ] Switch desde settings funciona
+
+**Dependencias:** All previous tasks
+**Estimado:** S (testing)
+**Estado:** PENDING
+
+---
+
+## Summary
+
+| Phase | Tasks | Estado |
+|-------|-------|--------|
+| Phase 1: Model + Parsers | Tasks 1-4 | PENDING |
+| Phase 2: Writers + Converter | Tasks 5-8 | PENDING |
+| Phase 3: Bootstrap + Swapper | Tasks 9-11 | PENDING |
+| Phase 4: UI Integration | Tasks 12-15 | PENDING |
+| Phase 5: Rollback + Polish | Tasks 16-18 | PENDING |

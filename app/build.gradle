@@ -8,7 +8,7 @@ ext {
     // crash at startup.
     // Bootstrap of a different variant must not be manually installed by the user after app installation
     // by replacing $PREFIX since app code is dependent on the variant used to build the APK.
-    // Currently supported values are: ["apt-android-7", "apt-android-5"]
+    // Currently supported values are: ["apt-android-7", "apt-android-5", "pacman-android-7"]
     packageVariant = System.getenv("TERMUX_PACKAGE_VARIANT") ?: "apt-android-7" // Default: "apt-android-7"
 }
 
@@ -225,6 +225,9 @@ def downloadBootstrap(String arch, String expectedChecksum, String version) {
     def localUrl = "src/main/cpp/bootstrap-" + arch + ".zip"
     def file = new File(projectDir, localUrl)
     if (file.exists()) {
+        if (expectedChecksum == null) {
+            return
+        }
         def buffer = new byte[8192]
         def input = new FileInputStream(file)
         while (true) {
@@ -255,7 +258,7 @@ def downloadBootstrap(String arch, String expectedChecksum, String version) {
     out.close()
     def checksum = new BigInteger(1, digest.digest()).toString(16)
     while (checksum.length() < 64) { checksum = "0" + checksum }
-    if (checksum != expectedChecksum) {
+    if (expectedChecksum != null && checksum != expectedChecksum) {
         file.delete()
         throw new GradleException("Wrong checksum for " + remoteUrl + ": expected: " + expectedChecksum + ", actual: " + checksum)
     }
@@ -318,6 +321,14 @@ task downloadBootstraps() {
             downloadBootstrap("arm", "26bfb45304c946170db69108e5eb6e3641aad751406ce106c80df80cad2eccf8", version)
             downloadBootstrap("i686", "46dcfeb5eef67ba765498db9fe4c50dc4690805139aa0dd141a9d8ee0693cd27", version)
             downloadBootstrap("x86_64", "615b590679ee6cd885b7fd2ff9473c845e920f9b422f790bb158c63fe42b8481", version)
+        } else if (packageVariant == "pacman-android-7") {
+            // Pacman bootstrap from termux-pacman project
+            // https://github.com/termux-pacman/termux-packages
+            // Uses "latest" release - checksums not pinned for latest
+            downloadBootstrap("aarch64", null, "latest")
+            downloadBootstrap("arm", null, "latest")
+            downloadBootstrap("i686", null, "latest")
+            downloadBootstrap("x86_64", null, "latest")
         } else {
             throw new GradleException("Unsupported TERMUX_PACKAGE_VARIANT \"" + packageVariant + "\"")
         }

@@ -52,3 +52,4 @@ java.lang.StackOverflowError: stack size 8188KB
 	at com.termux.app.terminal.TermuxSessionsListViewController.notifyDataSetChanged(TermuxSessionsListViewController.java:155)
 	at com.termux.app.terminal.TermuxSessionsListViewController.rebuildGroupedList(TermuxSessionsListViewController.java:86)
 	at com.termux.app.ter
+05:57:36 main.go:26: === gita started ===

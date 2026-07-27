@@ -27,6 +27,9 @@ public class TermuxAppSharedPreferences extends AppSharedPreferences {
 
     private static final String LOG_TAG = "TermuxAppSharedPreferences";
 
+    /** Key for the package manager preference. Values: "apt" or "pacman". */
+    public static final String KEY_PACKAGE_MANAGER = "package_manager";
+
     private TermuxAppSharedPreferences(@NonNull Context context) {
         this(
             context,
@@ -773,6 +776,14 @@ public class TermuxAppSharedPreferences extends AppSharedPreferences {
 
     public void setCurrentSession(String value) {
         SharedPreferenceUtils.setString(mSharedPreferences, TERMUX_APP.KEY_CURRENT_SESSION, value, false);
+    }
+
+    public String getPackageManagerPreference() {
+        return mSharedPreferences.getString(KEY_PACKAGE_MANAGER, null);
+    }
+
+    public void setPackageManagerPreference(String packageManager) {
+        mSharedPreferences.edit().putString(KEY_PACKAGE_MANAGER, packageManager).apply();
     }
 
     public int getLogLevel() {

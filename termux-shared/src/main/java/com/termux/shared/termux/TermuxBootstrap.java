@@ -92,10 +92,13 @@ public class TermuxBootstrap {
     //public static boolean isAppPackageManagerTAPM() {
     //    return PackageManager.TAPM.equals(TERMUX_APP_PACKAGE_MANAGER);
     //}
-    ///** Is {@link PackageManager#PACMAN} set as {@link #TERMUX_APP_PACKAGE_MANAGER}. */
-    //public static boolean isAppPackageManagerPACMAN() {
-    //    return PackageManager.PACMAN.equals(TERMUX_APP_PACKAGE_MANAGER);
-    //}
+    /**
+     * Is {@link PackageManager#PACMAN} set as {@link #TERMUX_APP_PACKAGE_MANAGER}.
+     */
+    public static boolean isAppPackageManagerPACMAN() {
+        return PackageManager.PACMAN.equals(TERMUX_APP_PACKAGE_MANAGER);
+    }
+
     /**
      * Is {@link PackageVariant#APT_ANDROID_7} set as {@link #TERMUX_APP_PACKAGE_VARIANT}.
      */
@@ -114,10 +117,47 @@ public class TermuxBootstrap {
     //public static boolean isAppPackageVariantTAPMAndroid7() {
     //    return PackageVariant.TAPM_ANDROID_7.equals(TERMUX_APP_PACKAGE_VARIANT);
     //}
-    ///** Is {@link PackageVariant#PACMAN_ANDROID_7} set as {@link #TERMUX_APP_PACKAGE_VARIANT}. */
-    //public static boolean isAppPackageVariantTPACMANAndroid7() {
-    //    return PackageVariant.PACMAN_ANDROID_7.equals(TERMUX_APP_PACKAGE_VARIANT);
-    //}
+    /**
+     * Is {@link PackageVariant#PACMAN_ANDROID_7} set as {@link #TERMUX_APP_PACKAGE_VARIANT}.
+     */
+    public static boolean isAppPackageVariantPACMANAndroid7() {
+        return PackageVariant.PACMAN_ANDROID_7.equals(TERMUX_APP_PACKAGE_VARIANT);
+    }
+
+    /**
+     * Get {@link PackageManager} for the given {@link PackageVariant}.
+     */
+    @Nullable
+    public static PackageManager getPackageManagerForPackageVariant(PackageVariant variant) {
+        switch (variant) {
+            case APT_ANDROID_5:
+            case APT_ANDROID_7:
+                return PackageManager.APT;
+            case PACMAN_ANDROID_7:
+                return PackageManager.PACMAN;
+            default:
+                return null;
+        }
+    }
+
+    /**
+     * Get default {@link PackageVariant} based on the app's package manager.
+     */
+    @NonNull
+    public static PackageVariant getDefaultPackageVariant() {
+        PackageManager pm = TERMUX_APP_PACKAGE_MANAGER;
+        if (pm == null) {
+            return PackageVariant.APT_ANDROID_7;
+        }
+        switch (pm) {
+            case PACMAN:
+                return PackageVariant.PACMAN_ANDROID_7;
+            case APT:
+            default:
+                return PackageVariant.APT_ANDROID_7;
+        }
+    }
+
     /**
      * Termux package manager.
      */
@@ -135,12 +175,12 @@ public class TermuxBootstrap {
         // * https://en.wikipedia.org/wiki/Apk_(file_format)
         // */
         //TAPM("tapm");
-        ///**
-        // * Package Manager (PACMAN) for managing arch linux pkg.tar package files.
-        // * https://wiki.archlinux.org/title/pacman
-        // * https://en.wikipedia.org/wiki/Arch_Linux#Pacman
-        // */
-        //PACMAN("pacman");
+        /**
+         * Package Manager (PACMAN) for managing arch linux pkg.tar package files.
+         * https://wiki.archlinux.org/title/pacman
+         * https://en.wikipedia.org/wiki/Arch_Linux#Pacman
+         */
+        PACMAN("pacman");
         private final String name;
 
         PackageManager(final String name) {
@@ -187,8 +227,8 @@ public class TermuxBootstrap {
 
         ///** {@link PackageManager#TAPM} variant for Android 7+. */
         //TAPM_ANDROID_7("tapm-android-7");
-        ///** {@link PackageManager#PACMAN} variant for Android 7+. */
-        //PACMAN_ANDROID_7("pacman-android-7");
+        /** {@link PackageManager#PACMAN} variant for Android 7+. */
+        PACMAN_ANDROID_7("pacman-android-7");
         private final String name;
 
         PackageVariant(final String name) {

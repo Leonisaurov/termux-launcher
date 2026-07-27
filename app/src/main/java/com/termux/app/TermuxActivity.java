@@ -147,6 +147,7 @@ import com.termux.app.terminal.split.LeafNode;
 import com.termux.app.terminal.split.SplitNode;
 import com.termux.app.terminal.split.TermuxSplitUtils;
 import com.termux.app.terminal.split.MiniSplitView;
+import com.termux.pkgconv.PackageManagerConverter;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
@@ -4010,6 +4011,17 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
         Logger.logDebug(LOG_TAG, "onServiceConnected");
         mTermuxService = ((TermuxService.LocalBinder) service).service;
         setTermuxSessionsListView();
+
+        // Check for incomplete package manager conversion before bootstrap
+        try {
+            PackageManagerConverter pmConverter = new PackageManagerConverter();
+            if (pmConverter.handleIncompleteConversionIfNeeded()) {
+                Log.i(LOG_TAG, "Recovered from incomplete package manager conversion");
+            }
+        } catch (Exception e) {
+            Log.e(LOG_TAG, "Failed to check incomplete conversion: " + e.getMessage());
+        }
+
         final Intent intent = getIntent();
         if (mLauncherTransitionController != null) {
             mLauncherTransitionController.maybeHandleGestureContract(intent, mSuggestionBarView);
