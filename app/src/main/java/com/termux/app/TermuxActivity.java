@@ -7597,12 +7597,9 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
      * Constructs download URL directly from release tag (no gh CLI needed).
      */
     private void downloadAndInstallUpdate() {
-        String variant = "apt";
         TermuxAppSharedPreferences prefs = TermuxAppSharedPreferences.build(this, false);
-        if (prefs != null) {
-            String pm = prefs.getPackageManagerPreference();
-            if (pm != null) variant = pm;
-        }
+        String pm = (prefs != null) ? prefs.getPackageManagerPreference() : null;
+        final String variant = (pm != null) ? pm : "apt";
 
         String apkUrl = "https://github.com/Leonisaurov/termux-launcher/releases/latest/download/termux-app-" + variant + ".apk";
 
