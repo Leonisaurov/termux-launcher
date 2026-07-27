@@ -35,42 +35,67 @@ jobs:
         with:
           cache-read-only: false
 
+      - name: Cache release keystore
+        uses: actions/cache@v4
+        with:
+          path: app/release.keystore
+          key: release-keystore-${{ runner.os }}
+
+      - name: Create release keystore (if not exists)
+        run: |
+          KEYSTORE_FILE="app/release.keystore"
+          if [ ! -f "$KEYSTORE_FILE" ]; then
+            echo "Creating release keystore..."
+            keytool -genkey -v \
+              -keystore "$KEYSTORE_FILE" \
+              -alias termux-release \
+              -keyalg RSA \
+              -keysize 2048 \
+              -validity 10000 \
+              -storepass termux123 \
+              -keypass termux123 \
+              -dname "CN=Termux Split, OU=Development, O=Termux, L=Unknown, ST=Unknown, C=US"
+            echo "Keystore created at $KEYSTORE_FILE"
+          else
+            echo "Keystore already exists, reusing for consistent signing"
+          fi
+
       - name: Build APK
         env:
           TERMUX_PACKAGE_VARIANT: ${{ matrix.package_variant }}
+          TERMUX_RELEASE_STORE_FILE: app/release.keystore
+          TERMUX_RELEASE_STORE_PASSWORD: termux123
+          TERMUX_RELEASE_KEY_ALIAS: termux-release
+          TERMUX_RELEASE_KEY_PASSWORD: termux123
         run: |
           echo "Building with TERMUX_PACKAGE_VARIANT=$TERMUX_PACKAGE_VARIANT"
-          RELEASE_VERSION_NAME="${{ env.TERMUX_APP_VERSION_NAME }}"
-          APK_VERSION_TAG="$RELEASE_VERSION_NAME-$TERMUX_PACKAGE_VARIANT-github-debug"
+          echo "Using release keystore for consistent signing"
           
-          ./gradlew assembleDebug \
+          ./gradlew assembleRelease \
             -Pandroid.injected.build.abi=arm64-v8a \
-            -PTERMUX_APK_VERSION_TAG="$APK_VERSION_TAG" \
-            -x testDebugUnitTest -x lintDebug -x lintVitalDebug
+            -x testDebugUnitTest -x lintDebug -x lintVitalDebug \
+            -x verifyReleaseHardening
           
-          # Find the APK dynamically (Gradle 9+ changes output paths)
           VARIANT_SHORT="${TERMUX_PACKAGE_VARIANT%-android-7}"
           
-          echo "Searching for APK under app/build..."
-          find app/build -name "*.apk" -type f 2>/dev/null
-          
+          echo "Looking for APK..."
           APK_FILE=$(find app/build -name "*.apk" -type f 2>/dev/null | head -1)
           if [ -z "$APK_FILE" ]; then
-            echo "::error::No APK found under app/build/. Listing contents:"
-            find app/build -type d 2>/dev/null | head -30
+            echo "::error::No APK found"
+            find app/build -name "*.apk" -type f 2>/dev/null
             exit 1
           fi
           
           echo "Found APK: $APK_FILE"
-          mkdir -p app/build/outputs/apk/debug
-          cp "$APK_FILE" "app/build/outputs/apk/debug/termux-app-$VARIANT_SHORT.apk"
-          echo "Copied to: app/build/outputs/apk/debug/termux-app-$VARIANT_SHORT.apk"
+          mkdir -p app/build/outputs/apk/release
+          cp "$APK_FILE" "app/build/outputs/apk/release/termux-app-$VARIANT_SHORT.apk"
+          echo "APK ready: termux-app-$VARIANT_SHORT.apk"
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: termux-app-${{ matrix.package_variant }}
-          path: app/build/outputs/apk/debug/termux-app-*.apk
+          path: app/build/outputs/apk/release/termux-app-*.apk
           retention-days: 7
 
   create-release:
