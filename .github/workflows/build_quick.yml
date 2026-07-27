@@ -69,28 +69,37 @@ jobs:
           TERMUX_RELEASE_KEY_PASSWORD: termux123
         run: |
           echo "Building with TERMUX_PACKAGE_VARIANT=$TERMUX_PACKAGE_VARIANT"
-          echo "Using release keystore for consistent signing"
           
           ./gradlew assembleRelease \
-            -Pandroid.injected.build.abi=arm64-v8a \
             -x testDebugUnitTest -x lintDebug -x lintVitalDebug \
-            -x verifyReleaseResources \
-            -x verifyReleaseHardening
+            -x verifyReleaseResources -x verifyReleaseHardening
           
           VARIANT_SHORT="${TERMUX_PACKAGE_VARIANT%-android-7}"
+          echo "Variant: $VARIANT_SHORT"
           
-          echo "Looking for APK..."
-          APK_FILE=$(find app/build -name "*.apk" -type f 2>/dev/null | head -1)
-          if [ -z "$APK_FILE" ]; then
-            echo "::error::No APK found"
+          # The final signed APK is always in outputs/apk/release/
+          APK_DIR="app/build/outputs/apk/release"
+          echo "Contents of $APK_DIR:"
+          ls -la "$APK_DIR/" 2>/dev/null || echo "Directory does not exist"
+          
+          # Find the arm64-v8a release APK specifically, not unsigned or other variants
+          FINAL_APK=$(find "$APK_DIR" -name "*-release.apk" -type f | grep -v "unsigned" | head -1)
+          
+          if [ -z "$FINAL_APK" ]; then
+            # Fallback: find any APK in outputs (not intermediates)
+            FINAL_APK=$(find app/build/outputs -name "*.apk" -type f | grep -v "unsigned" | head -1)
+          fi
+          
+          if [ -z "$FINAL_APK" ]; then
+            echo "::error::No signed APK found"
             find app/build -name "*.apk" -type f 2>/dev/null
             exit 1
           fi
           
-          echo "Found APK: $APK_FILE"
-          mkdir -p app/build/outputs/apk/release
-          cp "$APK_FILE" "app/build/outputs/apk/release/termux-app-$VARIANT_SHORT.apk"
-          echo "APK ready: termux-app-$VARIANT_SHORT.apk"
+          echo "Found signed APK: $FINAL_APK"
+          cp "$FINAL_APK" "$APK_DIR/termux-app-$VARIANT_SHORT.apk"
+          echo "✅ APK ready: termux-app-$VARIANT_SHORT.apk"
+          ls -lh "$APK_DIR/termux-app-$VARIANT_SHORT.apk"
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
