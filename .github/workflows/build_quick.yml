@@ -48,24 +48,23 @@ jobs:
             -PTERMUX_APK_VERSION_TAG="$APK_VERSION_TAG" \
             -x testDebugUnitTest -x lintDebug -x lintVitalDebug
           
-          # Find the APK dynamically
-          APK_DIR="app/build/outputs/apk/debug"
+          # Find the APK dynamically (Gradle 9+ changes output paths)
           VARIANT_SHORT="${TERMUX_PACKAGE_VARIANT%-android-7}"
           
-          echo "Looking for APK in $APK_DIR..."
-          ls -la "$APK_DIR/"
+          echo "Searching for APK under app/build..."
+          find app/build -name "*.apk" -type f 2>/dev/null
           
-          # Find the arm64 APK (might be named differently in different Gradle versions)
-          APK_FILE=$(find "$APK_DIR" -name "*.apk" -type f | head -1)
+          APK_FILE=$(find app/build -name "*.apk" -type f 2>/dev/null | head -1)
           if [ -z "$APK_FILE" ]; then
-            echo "::error::No APK found in $APK_DIR"
-            ls -la "$APK_DIR/" 2>/dev/null || echo "Directory does not exist"
+            echo "::error::No APK found under app/build/. Listing contents:"
+            find app/build -type d 2>/dev/null | head -30
             exit 1
           fi
           
           echo "Found APK: $APK_FILE"
-          cp "$APK_FILE" "$APK_DIR/termux-app-$VARIANT_SHORT.apk"
-          echo "Copied to: termux-app-$VARIANT_SHORT.apk"
+          mkdir -p app/build/outputs/apk/debug
+          cp "$APK_FILE" "app/build/outputs/apk/debug/termux-app-$VARIANT_SHORT.apk"
+          echo "Copied to: app/build/outputs/apk/debug/termux-app-$VARIANT_SHORT.apk"
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
