@@ -116,10 +116,12 @@ public class TermuxShellEnvironment extends AndroidShellEnvironment {
     }
 
     private String getPackageManagerValue() {
+        if (TermuxBootstrap.TERMUX_APP_PACKAGE_MANAGER == null) return "unknown";
         return TermuxBootstrap.TERMUX_APP_PACKAGE_MANAGER.name().toLowerCase();
     }
 
     private String getPackageVariantValue() {
+        if (TermuxBootstrap.TERMUX_APP_PACKAGE_VARIANT == null) return "unknown";
         return TermuxBootstrap.TERMUX_APP_PACKAGE_VARIANT.name().toLowerCase().replace('_', '-');
     }
 }

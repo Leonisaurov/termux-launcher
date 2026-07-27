@@ -35,11 +35,11 @@ public class BootstrapSwapper {
 
         if (from == to) return;
 
-        // 1. Eliminar binarios y config del gestor origen
-        removePackageManagerFiles(from);
-
-        // 2. Extraer binarios y config del gestor destino desde el bootstrap ZIP
+        // 1. PRIMERO extraer los nuevos binarios
         extractPackageManagerFiles(to);
+
+        // 2. LUEGO eliminar los viejos
+        removePackageManagerFiles(from);
     }
 
     /**
@@ -55,11 +55,11 @@ public class BootstrapSwapper {
 
         if (from == to) return;
 
-        // 1. Eliminar binarios y config del gestor origen
-        removePackageManagerFiles(from);
-
-        // 2. Extraer binarios y config del gestor destino desde el bootstrap ZIP en assets
+        // 1. PRIMERO extraer los nuevos binarios
         extractPackageManagerFiles(to, context);
+
+        // 2. LUEGO eliminar los viejos
+        removePackageManagerFiles(from);
     }
 
     /**
@@ -155,13 +155,19 @@ public class BootstrapSwapper {
      * Extrae solo los archivos específicos del gestor desde el ZIP.
      */
     private void extractSpecificFiles(InputStream zipStream,
-                                      PackageManagerConverter.PackageManager pm) throws IOException {
+                                       PackageManagerConverter.PackageManager pm) throws IOException {
         Set<String> targetPaths = getTargetPaths(pm);
 
         try (ZipInputStream zis = new ZipInputStream(zipStream)) {
             ZipEntry entry;
             while ((entry = zis.getNextEntry()) != null) {
                 String name = entry.getName();
+
+                if (name.contains("..") || name.startsWith("/")) {
+                    log("Skipping unsafe entry: " + name);
+                    zis.closeEntry();
+                    continue;
+                }
 
                 if (isRelevantEntry(name, targetPaths)) {
                     Path outputPath = prefixPath.resolve(name);

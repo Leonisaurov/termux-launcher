@@ -45,6 +45,7 @@ public class TermuxPreferencesFragment extends MaterialPreferenceFragment {
                 if (ctx == null) return false;
 
                 final TermuxAppSharedPreferences prefs = TermuxAppSharedPreferences.build(ctx, true);
+                if (prefs == null) return false;
                 String currentPM = prefs.getPackageManagerPreference();
                 if (currentPM == null) currentPM = "apt";
 
@@ -65,6 +66,11 @@ public class TermuxPreferencesFragment extends MaterialPreferenceFragment {
                                 converter.setProgressCallback(new PackageManagerConverter.ProgressCallback() {
                                     @Override
                                     public void onProgress(String message, int percent) {
+                                        if (getActivity() != null) {
+                                            getActivity().runOnUiThread(() -> {
+                                                pref.setSummary(message + " (" + percent + "%)");
+                                            });
+                                        }
                                     }
                                     @Override
                                     public void onError(String message, Exception e) {
@@ -94,6 +100,16 @@ public class TermuxPreferencesFragment extends MaterialPreferenceFragment {
                                     PackageManagerConverter.PackageManager.APT;
                                 converter.convert(target);
                             } catch (Exception e) {
+                                android.util.Log.e("TermuxPreferencesFragment", "PM conversion failed", e);
+                                if (getActivity() != null) {
+                                    getActivity().runOnUiThread(() -> {
+                                        try {
+                                            Toast.makeText(getActivity(),
+                                                "Conversion failed: " + e.getMessage(),
+                                                Toast.LENGTH_LONG).show();
+                                        } catch (Exception ignored) {}
+                                    });
+                                }
                             }
                         }).start();
                     })
@@ -101,6 +117,17 @@ public class TermuxPreferencesFragment extends MaterialPreferenceFragment {
                     .show();
                 return true;
             });
+            // Update summary with current value
+            Preference pmPref = findPreference("package_manager");
+            if (pmPref != null) {
+                TermuxAppSharedPreferences currentPrefs = TermuxAppSharedPreferences.build(getContext(), true);
+                if (currentPrefs != null) {
+                    String current = currentPrefs.getPackageManagerPreference();
+                    if (current != null) {
+                        pmPref.setSummary("Current: " + current);
+                    }
+                }
+            }
         }
     }
 

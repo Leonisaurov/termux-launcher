@@ -10,6 +10,7 @@ import java.io.*;
 import java.nio.file.*;
 import java.util.*;
 import java.util.logging.*;
+import java.util.stream.Stream;
 
 public class PackageManagerConverter {
 
@@ -122,6 +123,10 @@ public class PackageManagerConverter {
 
             reportProgress("Reading installed packages...", 15);
             packages = parsePackages(sourcePM);
+            if (packages == null || packages.size() < 5) {
+                throw new ConversionException("Too few packages (" + (packages == null ? 0 : packages.size()) +
+                    ") to convert. At least 5 packages expected (bootstrap minimum).");
+            }
             reportProgress("Found " + packages.size() + " packages", 25);
             writeLock(ConvertStep.PARSED, sourcePM, targetPM);
 
@@ -229,6 +234,9 @@ public class PackageManagerConverter {
             addIfExists(pathsToBackup, prefixPath.resolve("etc/pacman.conf"));
         }
 
+        addIfExists(pathsToBackup, prefixPath.resolve("bin"));
+        addIfExists(pathsToBackup, prefixPath.resolve("lib"));
+
         Path backupTarget = backupDir.resolve("pre-convert-" + sourcePM.name().toLowerCase());
         if (Files.exists(backupTarget)) {
             deleteDirectory(backupTarget);
@@ -297,6 +305,7 @@ public class PackageManagerConverter {
             return true;
         } catch (Exception e) {
             LOGGER.severe("Failed to handle incomplete conversion: " + e.getMessage());
+            removeLock();
             return false;
         }
     }
@@ -381,10 +390,11 @@ public class PackageManagerConverter {
 
     private void deleteDirectory(Path path) throws IOException {
         if (!Files.exists(path)) return;
-        Files.walk(path)
-             .sorted(Comparator.reverseOrder())
-             .map(Path::toFile)
-             .forEach(File::delete);
+        try (Stream<Path> walk = Files.walk(path)) {
+            walk.sorted(Comparator.reverseOrder())
+                .map(Path::toFile)
+                .forEach(File::delete);
+        }
     }
 
     private void deleteQuietly(Path path) {
@@ -397,18 +407,19 @@ public class PackageManagerConverter {
 
     private void copyDirectory(Path source, Path target) throws IOException {
         if (!Files.exists(source)) return;
-        Files.walk(source)
-             .forEach(sourcePath -> {
-                 try {
-                     Path targetPath = target.resolve(source.relativize(sourcePath));
-                     if (Files.isDirectory(sourcePath)) {
-                         Files.createDirectories(targetPath);
-                     } else {
-                         Files.copy(sourcePath, targetPath, StandardCopyOption.REPLACE_EXISTING);
-                     }
-                 } catch (IOException e) {
-                     throw new UncheckedIOException(e);
-                 }
-             });
+        try (Stream<Path> walk = Files.walk(source)) {
+            walk.forEach(sourcePath -> {
+                try {
+                    Path targetPath = target.resolve(source.relativize(sourcePath));
+                    if (Files.isDirectory(sourcePath)) {
+                        Files.createDirectories(targetPath);
+                    } else {
+                        Files.copy(sourcePath, targetPath, StandardCopyOption.REPLACE_EXISTING);
+                    }
+                } catch (IOException e) {
+                    throw new UncheckedIOException(e);
+                }
+            });
+        }
     }
 }

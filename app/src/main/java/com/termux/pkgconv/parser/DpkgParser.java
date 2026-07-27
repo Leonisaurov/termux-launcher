@@ -196,8 +196,12 @@ public class DpkgParser {
             return result;
         }
         String[] parts = depString.split(",");
-        for (String part : parts) {
-            result.addAll(parseDependencyGroup(part.trim()));
+        for (int i = 0; i < parts.length; i++) {
+            List<Dependency> group = parseDependencyGroup(parts[i].trim());
+            for (Dependency dep : group) {
+                dep.setOrGroupId(i);
+            }
+            result.addAll(group);
         }
         return result;
     }

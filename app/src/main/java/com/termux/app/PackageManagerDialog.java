@@ -47,6 +47,10 @@ public class PackageManagerDialog {
         });
 
         builder.setCancelable(false);
-        builder.show();
+        try {
+            builder.show();
+        } catch (Exception e) {
+            android.util.Log.e("PackageManagerDialog", "Failed to show dialog", e);
+        }
     }
 }

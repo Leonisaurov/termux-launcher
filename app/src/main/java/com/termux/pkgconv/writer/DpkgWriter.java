@@ -144,13 +144,13 @@ public class DpkgWriter {
     private String formatDependencies(List<Dependency> deps) {
         if (deps == null || deps.isEmpty()) return "";
 
-        Map<String, List<Dependency>> grouped = new LinkedHashMap<>();
+        Map<Integer, List<Dependency>> grouped = new LinkedHashMap<>();
         for (Dependency dep : deps) {
-            grouped.computeIfAbsent(dep.getName(), k -> new ArrayList<>()).add(dep);
+            grouped.computeIfAbsent(dep.getOrGroupId(), k -> new ArrayList<>()).add(dep);
         }
 
         List<String> parts = new ArrayList<>();
-        for (Map.Entry<String, List<Dependency>> entry : grouped.entrySet()) {
+        for (Map.Entry<Integer, List<Dependency>> entry : grouped.entrySet()) {
             List<Dependency> group = entry.getValue();
             if (group.size() == 1) {
                 parts.add(formatSingleDependency(group.get(0)));
@@ -186,6 +186,11 @@ public class DpkgWriter {
         }
     }
 
+    private String sanitizePackageName(String name) {
+        if (name == null || name.trim().isEmpty()) throw new IllegalArgumentException("Invalid package name");
+        return name.replaceAll("[^a-zA-Z0-9.+-]", "_");
+    }
+
     private String toAbsolutePath(String relativePath) {
         if (relativePath == null) return "";
         if (relativePath.startsWith("/")) return relativePath;
@@ -201,7 +206,7 @@ public class DpkgWriter {
             lines.add(toAbsolutePath(fp.getPath()));
         }
 
-        Path listFile = infoDir.resolve(pkg.getName() + ".list");
+        Path listFile = infoDir.resolve(sanitizePackageName(pkg.getName()) + ".list");
         Files.write(listFile, lines, StandardCharsets.UTF_8,
                 StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING);
     }
@@ -220,7 +225,7 @@ public class DpkgWriter {
 
         if (lines.isEmpty()) return;
 
-        Path md5File = infoDir.resolve(pkg.getName() + ".md5sums");
+        Path md5File = infoDir.resolve(sanitizePackageName(pkg.getName()) + ".md5sums");
         Files.write(md5File, lines, StandardCharsets.UTF_8,
                 StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING);
     }
@@ -234,7 +239,7 @@ public class DpkgWriter {
             lines.add(toAbsolutePath(cf.getPath()));
         }
 
-        Path conffileFile = infoDir.resolve(pkg.getName() + ".conffiles");
+        Path conffileFile = infoDir.resolve(sanitizePackageName(pkg.getName()) + ".conffiles");
         Files.write(conffileFile, lines, StandardCharsets.UTF_8,
                 StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING);
     }
@@ -243,7 +248,7 @@ public class DpkgWriter {
         Scripts scripts = pkg.getScripts();
         if (scripts == null || !scripts.hasAny()) return;
 
-        String name = pkg.getName();
+        String name = sanitizePackageName(pkg.getName());
         writeScript(name + ".preinst", scripts.getPreInst());
         writeScript(name + ".postinst", scripts.getPostInst());
         writeScript(name + ".prerm", scripts.getPreRm());

@@ -6,6 +6,7 @@ public class Dependency {
     private String name;
     private Operator operator;
     private String version;
+    private int orGroupId;
 
     public Dependency() {
         this.operator = Operator.ANY;
@@ -39,6 +40,14 @@ public class Dependency {
 
     public void setVersion(String version) {
         this.version = version;
+    }
+
+    public int getOrGroupId() {
+        return orGroupId;
+    }
+
+    public void setOrGroupId(int orGroupId) {
+        this.orGroupId = orGroupId;
     }
 
     @Override

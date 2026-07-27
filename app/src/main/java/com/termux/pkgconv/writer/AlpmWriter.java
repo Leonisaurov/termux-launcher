@@ -47,8 +47,13 @@ public class AlpmWriter {
         writeInstallFile(pkgDir.resolve("install"), pkg);
     }
 
+    private String sanitizePackageName(String name) {
+        if (name == null || name.trim().isEmpty()) throw new IllegalArgumentException("Invalid package name");
+        return name.replaceAll("[^a-zA-Z0-9.+-]", "_");
+    }
+
     private String getDirName(PackageModel pkg) {
-        return pkg.getName() + "-" + pkg.getVersion();
+        return sanitizePackageName(pkg.getName()) + "-" + pkg.getVersion();
     }
 
     private void writeDescFile(Path path, PackageModel pkg) throws IOException {

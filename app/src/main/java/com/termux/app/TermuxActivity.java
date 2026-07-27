@@ -4013,15 +4013,18 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
         mTermuxService = ((TermuxService.LocalBinder) service).service;
         setTermuxSessionsListView();
 
-        // Check for incomplete package manager conversion before bootstrap
-        try {
-            PackageManagerConverter pmConverter = new PackageManagerConverter();
-            if (pmConverter.handleIncompleteConversionIfNeeded()) {
-                Log.i(LOG_TAG, "Recovered from incomplete package manager conversion");
+        // Check for incomplete package manager conversion before bootstrap (background thread)
+        new Thread(() -> {
+            try {
+                PackageManagerConverter pmConverter = new PackageManagerConverter();
+                boolean recovered = pmConverter.handleIncompleteConversionIfNeeded();
+                if (recovered) {
+                    Log.i(LOG_TAG, "Recovered from incomplete package manager conversion");
+                }
+            } catch (Exception e) {
+                Log.e(LOG_TAG, "Failed to check incomplete conversion: " + e.getMessage());
             }
-        } catch (Exception e) {
-            Log.e(LOG_TAG, "Failed to check incomplete conversion: " + e.getMessage());
-        }
+        }).start();
 
         final Intent intent = getIntent();
         if (mLauncherTransitionController != null) {
