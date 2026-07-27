@@ -1,6 +1,7 @@
 package com.termux.app;
 
 import android.annotation.SuppressLint;
+import android.app.ProgressDialog;
 import android.app.WallpaperColors;
 import android.app.WallpaperInfo;
 import android.app.WallpaperManager;
@@ -174,6 +175,8 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.InputStream;
+import java.net.HttpURLConnection;
+import java.net.URL;
 
 import juloo.keyboard2.Keyboard2View;
 
@@ -7593,218 +7596,79 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
      * Download the latest APK from GitHub Releases and trigger installation.
      * Constructs download URL directly from release tag (no gh CLI needed).
      */
-    /**
-     * Download the latest APK from the nightly-split-latest release.
-     * The URL is fixed and always points to the latest build.
-     */
     private void downloadAndInstallUpdate() {
-        // Create dialog
-        androidx.appcompat.app.AlertDialog.Builder builder = new androidx.appcompat.app.AlertDialog.Builder(this);
-        android.widget.LinearLayout layout = new android.widget.LinearLayout(this);
-        layout.setOrientation(android.widget.LinearLayout.VERTICAL);
-        layout.setPadding(40, 30, 40, 30);
-        
-        android.widget.TextView statusText = new android.widget.TextView(this);
-        statusText.setText("📡 Connecting...");
-        statusText.setTextSize(14);
-        layout.addView(statusText);
-        
-        android.widget.ProgressBar progressBar = new android.widget.ProgressBar(
-            this, null, android.R.attr.progressBarStyleHorizontal);
-        progressBar.setMax(100);
-        progressBar.setPadding(0, 20, 0, 20);
-        layout.addView(progressBar);
-        
-        android.widget.TextView sizeText = new android.widget.TextView(this);
-        sizeText.setText("");
-        sizeText.setTextSize(12);
-        sizeText.setTextAlignment(android.view.View.TEXT_ALIGNMENT_CENTER);
-        layout.addView(sizeText);
-        
-        builder.setTitle("⬇ Updating APK");
-        builder.setView(layout);
-        builder.setCancelable(true);
-        builder.setNegativeButton("Cancel", null);
-        
-        final Thread[] downloadThread = new Thread[1];
-        
-        androidx.appcompat.app.AlertDialog dialog = builder.create();
-        dialog.setCanceledOnTouchOutside(false);
-        dialog.show();
-        
-        dialog.getButton(android.content.DialogInterface.BUTTON_NEGATIVE).setOnClickListener(v -> {
-            Thread t = downloadThread[0];
-            if (t != null) t.interrupt();
-            dialog.dismiss();
-        });
-        
-        dialog.setOnCancelListener(d -> {
-            Thread t = downloadThread[0];
-            if (t != null) t.interrupt();
-        });
-        
-        downloadThread[0] = new Thread(() -> {
+        String variant = "apt";
+        TermuxAppSharedPreferences prefs = TermuxAppSharedPreferences.build(this, false);
+        if (prefs != null) {
+            String pm = prefs.getPackageManagerPreference();
+            if (pm != null) variant = pm;
+        }
+
+        String apkUrl = "https://github.com/Leonisaurov/termux-launcher/releases/latest/download/termux-app-" + variant + ".apk";
+
+        ProgressDialog progress = new ProgressDialog(this);
+        progress.setTitle("Downloading Update");
+        progress.setMessage("Downloading " + variant.toUpperCase() + " APK...");
+        progress.setProgressStyle(ProgressDialog.STYLE_HORIZONTAL);
+        progress.setCancelable(false);
+        progress.show();
+
+        new Thread(() -> {
             try {
-                String pmVariant = mPreferences.getPackageManagerPreference();
-                if (pmVariant == null) pmVariant = "apt";
-                String apkUrl = "https://github.com/Leonisaurov/termux-launcher/releases/download/nightly-split-latest/termux-app-" + pmVariant + ".apk";
-                String destDir = "/data/data/com.termux/files/home/storage/downloads";
-                String destPath = destDir + "/termux-" + pmVariant + "-update.apk";
-                
-                new java.io.File(destDir).mkdirs();
-                
-                java.net.URL url = new java.net.URL(apkUrl);
-                java.net.HttpURLConnection conn = (java.net.HttpURLConnection) url.openConnection();
-                conn.setRequestMethod("GET");
-                conn.setRequestProperty("User-Agent", "Termux-Split-App");
-                conn.setInstanceFollowRedirects(true);
-                conn.setConnectTimeout(15000);
-                conn.setReadTimeout(60000);
-                conn.connect();
-                
-                int responseCode = conn.getResponseCode();
-                if (responseCode != 200) {
-                    final int code = responseCode;
-                    runOnUiThread(() -> {
-                        dialog.dismiss();
-                        showUpdateError("Download failed: HTTP " + code);
-                    });
-                    conn.disconnect();
-                    return;
-                }
-                
-                int totalSize = conn.getContentLength();
-                java.io.InputStream inputStream = conn.getInputStream();
-                java.io.FileOutputStream outputStream = new java.io.FileOutputStream(destPath);
-                
-                byte[] buffer = new byte[8192];
-                int bytesRead;
-                int totalRead = 0;
-                long lastUpdate = 0;
-                boolean unknownSize = (totalSize <= 0);
-                
-                if (unknownSize) {
-                    runOnUiThread(() -> {
-                        progressBar.setIndeterminate(true);
-                        sizeText.setText("Size unknown, downloading...");
-                    });
-                }
-                
-                while ((bytesRead = inputStream.read(buffer)) != -1) {
-                    outputStream.write(buffer, 0, bytesRead);
-                    totalRead += bytesRead;
-                    
-                    long now = System.currentTimeMillis();
-                    if (now - lastUpdate > 150) {
-                        lastUpdate = now;
-                        if (unknownSize) {
-                            final int readMb = totalRead / (1024 * 1024);
-                            runOnUiThread(() -> {
-                                statusText.setText("Downloading... " + readMb + " MB");
-                                sizeText.setText(readMb + " MB received");
-                            });
-                        } else {
-                            final int pct = (int) Math.min(100, (long) totalRead * 100 / Math.max(1L, (long) totalSize));
-                            final int readMb = totalRead / (1024 * 1024);
-                            final int totalMb = totalSize / (1024 * 1024);
-                            runOnUiThread(() -> {
-                                statusText.setText("Downloading... " + pct + "%");
-                                progressBar.setProgress(pct);
-                                sizeText.setText(readMb + " MB / " + totalMb + " MB");
-                            });
-                        }
+                URL url = new URL(apkUrl);
+                HttpURLConnection connection = (HttpURLConnection) url.openConnection();
+                connection.connect();
+
+                int fileLength = connection.getContentLength();
+                InputStream input = connection.getInputStream();
+
+                File downloadDir = new File(getFilesDir(), "home/storage/downloads");
+                downloadDir.mkdirs();
+                File apkFile = new File(downloadDir, "termux-app-" + variant + ".apk");
+
+                FileOutputStream output = new FileOutputStream(apkFile);
+                byte[] buffer = new byte[4096];
+                long total = 0;
+                int count;
+                while ((count = input.read(buffer)) != -1) {
+                    total += count;
+                    output.write(buffer, 0, count);
+                    if (fileLength > 0) {
+                        final int percent = (int) (total * 100 / fileLength);
+                        runOnUiThread(() -> progress.setProgress(percent));
                     }
                 }
-                outputStream.close();
-                inputStream.close();
-                conn.disconnect();
-                
-                File destFile = new File(destPath);
+                output.close();
+                input.close();
 
-                if (!destFile.exists() || destFile.length() == 0) {
-                    runOnUiThread(() -> {
-                        if (dialog.isShowing()) dialog.dismiss();
-                        new android.app.AlertDialog.Builder(TermuxActivity.this)
-                            .setTitle("Download Failed")
-                            .setMessage("Downloaded file is empty or missing.")
-                            .setPositiveButton(android.R.string.ok, null)
-                            .show();
-                    });
-                    return;
-                }
+                runOnUiThread(() -> {
+                    progress.dismiss();
+                    installApk(apkFile);
+                });
 
-                // Check if user has granted install permission
-                if (!getPackageManager().canRequestPackageInstalls()) {
-                    runOnUiThread(() -> {
-                        if (dialog.isShowing()) dialog.dismiss();
-                        new android.app.AlertDialog.Builder(this)
-                            .setTitle("Permission Required")
-                            .setMessage("To install this update, you need to allow app installations from this source.\n\nYou'll be redirected to Settings.")
-                            .setPositiveButton("Open Settings", (d, w) -> {
-                                Intent settingsIntent = new Intent(
-                                    android.provider.Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES,
-                                    android.net.Uri.parse("package:" + getPackageName())
-                                );
-                                startActivity(settingsIntent);
-                            })
-                            .setNegativeButton("Cancel", null)
-                            .show();
-                    });
-                    return;
-                }
-
-                // Install using FileProvider with content:// URI
-                try {
-                    Uri apkUri = androidx.core.content.FileProvider.getUriForFile(
-                        TermuxActivity.this,
-                        getPackageName() + ".fileProvider",
-                        destFile
-                    );
-
-                    Intent installIntent = new Intent(Intent.ACTION_VIEW);
-                    installIntent.setDataAndType(apkUri, "application/vnd.android.package-archive");
-                    installIntent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-                    installIntent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
-
-                    startActivity(installIntent);
-
-                    runOnUiThread(() -> {
-                        if (dialog.isShowing()) dialog.dismiss();
-                        new android.app.AlertDialog.Builder(this)
-                            .setTitle("Update Downloaded")
-                            .setMessage("Follow the installer prompts to complete installation.")
-                            .setPositiveButton(android.R.string.ok, null)
-                            .show();
-                    });
-                } catch (Exception e) {
-                    runOnUiThread(() -> {
-                        if (dialog.isShowing()) dialog.dismiss();
-                        new android.app.AlertDialog.Builder(this)
-                            .setTitle("Install Failed")
-                            .setMessage("Cannot open installer: " + e.getMessage() + "\n\nAPK saved to: " + destPath)
-                            .setPositiveButton(android.R.string.ok, null)
-                            .show();
-                    });
-                }
-                
             } catch (Exception e) {
                 runOnUiThread(() -> {
-                    dialog.dismiss();
-                    showUpdateError("Error: " + e.getMessage()
-                        + "\n\nManual: https://github.com/Leonisaurov/termux-launcher/releases/latest");
+                    progress.dismiss();
+                    new AlertDialog.Builder(this)
+                        .setTitle("Download Failed")
+                        .setMessage("Could not download update: " + e.getMessage())
+                        .setPositiveButton("OK", null)
+                        .show();
                 });
             }
-        });
-        downloadThread[0].start();
+        }).start();
     }
-    private void showUpdateError(String message) {
-        runOnUiThread(() -> {
-            new AlertDialog.Builder(TermuxActivity.this)
-                .setTitle("⬇ Update Failed")
-                .setMessage(message)
-                .setPositiveButton("OK", null)
-                .show();
-        });
+
+    private void installApk(File apkFile) {
+        Uri apkUri = FileProvider.getUriForFile(this,
+            getPackageName() + ".fileProvider", apkFile);
+
+        Intent intent = new Intent(Intent.ACTION_INSTALL_PACKAGE);
+        intent.setData(apkUri);
+        intent.setFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+        intent.putExtra(Intent.EXTRA_NOT_UNKNOWN_SOURCE, true);
+        intent.putExtra(Intent.EXTRA_RETURN_RESULT, true);
+        startActivity(intent);
     }
 
     /**

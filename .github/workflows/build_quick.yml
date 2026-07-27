@@ -1,29 +1,30 @@
-name: Build quick (arm64-only)
+name: Build & Release
 
 on:
-  workflow_dispatch:
   push:
     branches:
       - 'feature/**'
       - 'dev'
+      - 'main'
+  workflow_dispatch:
 
 concurrency:
   group: build-quick-${{ github.ref }}
   cancel-in-progress: true
 
 env:
-  TERMUX_APP_VERSION_NAME: ${{ vars.TERMUX_APP_VERSION_NAME || '0.2.29-hotfix.1' }}
+  APP_VERSION: ${{ vars.TERMUX_APP_VERSION_NAME || '0.2.29-hotfix.1' }}
 
 jobs:
   build:
     strategy:
       matrix:
-        package_variant: [apt-android-7, pacman-android-7]
+        variant: [apt, pacman]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
         with:
-          fetch-depth: 1
+          fetch-depth: 0
 
       - uses: actions/setup-java@v4
         with:
@@ -39,146 +40,143 @@ jobs:
         uses: actions/cache@v4
         with:
           path: app/release.keystore
-          key: release-keystore-${{ runner.os }}
+          key: release-keystore
 
       - name: Create release keystore (if not exists)
         run: |
           KEYSTORE_FILE="app/release.keystore"
           if [ ! -f "$KEYSTORE_FILE" ]; then
-            echo "Creating release keystore..."
             keytool -genkey -v \
               -keystore "$KEYSTORE_FILE" \
               -alias termux-release \
-              -keyalg RSA \
-              -keysize 2048 \
-              -validity 10000 \
-              -storepass termux123 \
-              -keypass termux123 \
-              -dname "CN=Termux Split, OU=Development, O=Termux, L=Unknown, ST=Unknown, C=US"
-            echo "Keystore created at $KEYSTORE_FILE"
-          else
-            echo "Keystore already exists, reusing for consistent signing"
+              -keyalg RSA -keysize 2048 -validity 10000 \
+              -storepass termux123 -keypass termux123 \
+              -dname "CN=Termux Split, OU=Dev, O=Termux, L=Unknown, ST=Unknown, C=US"
           fi
 
-      - name: Build APK
+      - name: Build APK (${{ matrix.variant }})
         env:
-          TERMUX_PACKAGE_VARIANT: ${{ matrix.package_variant }}
+          TERMUX_PACKAGE_VARIANT: ${{ matrix.variant == 'apt' && 'apt-android-7' || 'pacman-android-7' }}
           TERMUX_RELEASE_STORE_FILE: release.keystore
           TERMUX_RELEASE_STORE_PASSWORD: termux123
           TERMUX_RELEASE_KEY_ALIAS: termux-release
           TERMUX_RELEASE_KEY_PASSWORD: termux123
         run: |
-          echo "Building with TERMUX_PACKAGE_VARIANT=$TERMUX_PACKAGE_VARIANT"
-          
+          PKG_VARIANT="${{ matrix.variant == 'apt' && 'apt-android-7' || 'pacman-android-7' }}"
+          echo "Building $PKG_VARIANT..."
+
           ./gradlew assembleRelease \
+            -Pandroid.injected.build.abi=arm64-v8a \
             -x testDebugUnitTest -x lintDebug -x lintVitalDebug \
             -x verifyReleaseResources -x verifyReleaseHardening
-          
-          VARIANT_SHORT="${TERMUX_PACKAGE_VARIANT%-android-7}"
-          echo "Variant: $VARIANT_SHORT"
-          
-          # The final signed APK is always in outputs/apk/release/
-          APK_DIR="app/build/outputs/apk/release"
-          echo "Contents of $APK_DIR:"
-          ls -la "$APK_DIR/" 2>/dev/null || echo "Directory does not exist"
-          
-          # Find the arm64-v8a release APK specifically, not unsigned or other variants
-          FINAL_APK=$(find "$APK_DIR" -name "*-release.apk" -type f | grep -v "unsigned" | head -1)
-          
-          if [ -z "$FINAL_APK" ]; then
-            # Fallback: find any APK in outputs (not intermediates)
-            FINAL_APK=$(find app/build/outputs -name "*.apk" -type f | grep -v "unsigned" | head -1)
-          fi
-          
-          if [ -z "$FINAL_APK" ]; then
-            echo "::error::No signed APK found"
-            find app/build -name "*.apk" -type f 2>/dev/null
+
+          # Find the signed release APK
+          APK=$(find app/build/outputs/apk/release -name "*-release.apk" | grep -v "unsigned" | head -1)
+          if [ -z "$APK" ]; then
+            find app/build -name "*.apk" | head -5
             exit 1
           fi
-          
-          echo "Found signed APK: $FINAL_APK"
-          cp "$FINAL_APK" "$APK_DIR/termux-app-$VARIANT_SHORT.apk"
-          echo "✅ APK ready: termux-app-$VARIANT_SHORT.apk"
-          ls -lh "$APK_DIR/termux-app-$VARIANT_SHORT.apk"
 
-      - name: Upload APK
+          mkdir -p artifacts
+          cp "$APK" "artifacts/termux-app-${{ matrix.variant }}.apk"
+          echo "✅ APK: artifacts/termux-app-${{ matrix.variant }}.apk ($(ls -lh artifacts/termux-app-${{ matrix.variant }}.apk | awk '{print $5}'))"
+
+      - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: termux-app-${{ matrix.package_variant }}
-          path: app/build/outputs/apk/release/termux-app-*.apk
+          name: apk-${{ matrix.variant }}
+          path: artifacts/termux-app-${{ matrix.variant }}.apk
           retention-days: 7
 
-  create-release:
+  release:
     needs: build
-    if: github.ref_name != 'dev' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     permissions:
       contents: write
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
-      - name: Download all artifacts
+      - name: Download all APKs
         uses: actions/download-artifact@v4
         with:
-          path: apks
+          path: dist
+
+      - name: Generate release info
+        id: info
+        run: |
+          BUILD_NUMBER=${{ github.run_number }}
+          SHORT_SHA="${GITHUB_SHA:0:7}"
+          VERSION="${{ env.APP_VERSION }}"
+          TAG="v${VERSION}-b${BUILD_NUMBER}"
+
+          # Generate changelog from recent commits
+          CHANGELOG=$(git log --oneline --no-merges -20 "${{ github.event.before }}".."${{ github.sha }}" 2>/dev/null || echo "No changelog available")
+
+          echo "tag=$TAG" >> $GITHUB_OUTPUT
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "sha=$SHORT_SHA" >> $GITHUB_OUTPUT
+          echo "changelog<<EOF" >> $GITHUB_OUTPUT
+          echo "$CHANGELOG" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
 
       - name: Create Release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          RELEASE_VERSION_NAME="${{ env.TERMUX_APP_VERSION_NAME }}"
-          BUILD_NUMBER=${{ github.run_number }}
-          SHORT_SHA="${GITHUB_SHA:0:7}"
-          RELEASE_TAG="v$RELEASE_VERSION_NAME-build-$BUILD_NUMBER"
+          TAG="${{ steps.info.outputs.tag }}"
+          VERSION="${{ steps.info.outputs.version }}"
+          SHA="${{ steps.info.outputs.sha }}"
+          CHANGELOG="${{ steps.info.outputs.changelog }}"
 
-          # Find all APKs
-          APK_FILES=$(find apks -name "*.apk" -type f)
+          # Create release notes
+          cat > release-notes.md <<- EOF
+          ## Termux Split Screen v${VERSION} (build #${{ github.run_number }})
 
-          if gh release view "$RELEASE_TAG" --repo ${{ github.repository }} &>/dev/null; then
-            echo "Release $RELEASE_TAG already exists, uploading assets..."
-            for apk in $APK_FILES; do
-              gh release upload "$RELEASE_TAG" "$apk" --repo ${{ github.repository }} --clobber
-            done
-          else
-            echo "Creating release $RELEASE_TAG..."
-            gh release create "$RELEASE_TAG" \
-              --repo ${{ github.repository }} \
-              --title "v$RELEASE_VERSION_NAME Build #$BUILD_NUMBER" \
-              --notes "## Build $BUILD_NUMBER
-          - Commit: ${SHORT_SHA}
-          - APT binary: \`termux-app-apt.apk\`
-          - PACMAN binary: \`termux-app-pacman.apk\`
+          **Commit:** ${SHA}
 
-          ### Split Screen Feature
-          - Split vertical/horizontal with Ctrl+B
-          - Focus navigation, resize, zoom
-          - Package Manager Switcher (Settings → Package Manager)" \
-              --prerelease \
-              $APK_FILES
-          fi
+          ### Downloads
+          | Variant | APK |
+          |---------|-----|
+          | APT | \`termux-app-apt.apk\` |
+          | PACMAN | \`termux-app-pacman.apk\` |
 
-          # Update rolling tag
-          ROLLING_TAG="nightly-split-latest"
-          if git ls-remote --tags origin "$ROLLING_TAG" | grep -q .; then
-            gh release delete "$ROLLING_TAG" --yes --repo ${{ github.repository }} || true
-          fi
-          gh release create "$ROLLING_TAG" \
+          ### Changelog
+          ${CHANGELOG}
+
+          ---
+          _Built by GitHub Actions #${{ github.run_number }}_
+          EOF
+
+          # Delete existing release with same tag (if any)
+          gh release delete "$TAG" --yes --repo ${{ github.repository }} 2>/dev/null || true
+
+          # Find APKs
+          APT_APK=$(find dist -name "termux-app-apt.apk" -type f | head -1)
+          PACMAN_APK=$(find dist -name "termux-app-pacman.apk" -type f | head -1)
+
+          # Create release
+          gh release create "$TAG" \
             --repo ${{ github.repository }} \
-            --title "Nightly Split ($RELEASE_VERSION_NAME)" \
-            --notes "Latest nightly build with both APT and PACMAN variants." \
-            --prerelease \
-            $(find apks -name "*.apk" -type f)
+            --title "v${VERSION} Build #${{ github.run_number }}" \
+            --notes-file release-notes.md \
+            "$APT_APK" "$PACMAN_APK"
+
+          echo "✅ Release created: $TAG"
 
       - name: Cleanup old releases
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
+          # List all releases (excluding the one we just created)
           RELEASES=$(gh release list --repo ${{ github.repository }} --limit 50 \
-            --json tagName,isPrerelease --jq '.[] | select(.isPrerelease) | .tagName' \
-            | grep -v "nightly" | sort -V)
+            --json tagName,isPrerelease --jq '.[] | select(.isPrerelease | not) | .tagName' \
+            | sort -V)
           COUNT=$(echo "$RELEASES" | wc -l)
-          if [ "$COUNT" -gt 10 ]; then
-            echo "$RELEASES" | head -n -10 | while read TAG; do
+          if [ "$COUNT" -gt 20 ]; then
+            echo "$RELEASES" | head -n -20 | while read TAG; do
+              echo "Deleting old release: $TAG"
               gh release delete "$TAG" --yes --repo ${{ github.repository }} || true
             done
           fi
