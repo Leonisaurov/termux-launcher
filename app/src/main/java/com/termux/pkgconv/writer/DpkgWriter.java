@@ -253,6 +253,13 @@ public class DpkgWriter {
         writeScript(name + ".postinst", scripts.getPostInst());
         writeScript(name + ".prerm", scripts.getPreRm());
         writeScript(name + ".postrm", scripts.getPostRm());
+
+        for (String suffix : new String[]{".preinst", ".postinst", ".prerm", ".postrm"}) {
+            Path scriptPath = infoDir.resolve(name + suffix);
+            if (Files.exists(scriptPath)) {
+                scriptPath.toFile().setExecutable(true, false);
+            }
+        }
     }
 
     private void writeScript(String filename, String content) throws IOException {
