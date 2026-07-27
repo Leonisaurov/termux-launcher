@@ -71,7 +71,7 @@ jobs:
             -x verifyReleaseResources -x verifyReleaseHardening
 
           # Find the signed release APK
-          APK=$(find app/build/outputs/apk/release -name "*-release.apk" | grep -v "unsigned" | head -1)
+          APK=$(find app/build/outputs/apk/release app/build/intermediates/apk/release -name "*-release*.apk" 2>/dev/null | grep -v "unsigned" | head -1)
           if [ -z "$APK" ]; then
             find app/build -name "*.apk" | head -5
             exit 1
