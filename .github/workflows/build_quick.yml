@@ -2,6 +2,15 @@ name: Build quick (arm64-only)
 
 on:
   workflow_dispatch:
+    inputs:
+      package_variant:
+        description: 'Package manager variant'
+        required: true
+        default: 'apt-android-7'
+        type: choice
+        options:
+          - apt-android-7
+          - pacman-android-7
   push:
     branches:
       - feature/*
@@ -10,6 +19,11 @@ on:
 concurrency:
   group: build-quick-${{ github.ref }}
   cancel-in-progress: true
+
+env:
+  TERMUX_APP_VERSION_NAME: ${{ vars.TERMUX_APP_VERSION_NAME || '0.2.29-hotfix.1' }}
+  TERMUX_PACKAGE_VARIANT: ${{ github.event.inputs.package_variant || 'apt-android-7' }}
+  TERMUX_APK_VERSION_TAG: ${{ vars.TERMUX_APK_VERSION_TAG || '' }}
 
 jobs:
   build:
@@ -57,7 +71,7 @@ jobs:
           fi
 
           APK_DIR_PATH="./app/build/outputs/apk/debug"
-          APK_VERSION_TAG="$RELEASE_VERSION_NAME-apt-android-7-github-debug"
+          APK_VERSION_TAG="$RELEASE_VERSION_NAME-$TERMUX_PACKAGE_VARIANT-github-debug"
           APK_VERSION_TAG="${APK_VERSION_TAG//+/-}"
           APK_BASENAME_PREFIX="termux-app_$APK_VERSION_TAG"
 
@@ -65,9 +79,9 @@ jobs:
           echo "APK_BASENAME_PREFIX=$APK_BASENAME_PREFIX" >> $GITHUB_ENV
 
           echo "Building APK for '$APK_VERSION_TAG'"
+          echo "Package variant: $TERMUX_PACKAGE_VARIANT"
           export TERMUX_APP_VERSION_NAME="${RELEASE_VERSION_NAME/v/}"
           export TERMUX_APK_VERSION_TAG="$APK_VERSION_TAG"
-          export TERMUX_PACKAGE_VARIANT="apt-android-7"
 
           ./gradlew \
             --build-cache \
@@ -125,7 +139,8 @@ jobs:
           
           # Read version from VERSION file
           APP_VERSION=$(grep -m 1 '^VERSION=' VERSION | sed 's/VERSION=//')
-          RELEASE_TAG="v${APP_VERSION}-build-${BUILD_NUMBER}"
+          VARIANT_SHORT="${TERMUX_PACKAGE_VARIANT%-android-7}"
+          RELEASE_TAG="v${APP_VERSION}-${VARIANT_SHORT}-build-${BUILD_NUMBER}"
 
           echo "📦 Creating release: ${RELEASE_TAG} (app version ${APP_VERSION})"
 
@@ -138,12 +153,13 @@ jobs:
           gh release create "$RELEASE_TAG" \
             "${{ env.APK_DIR_PATH }}/termux-app-split.apk#termux-app-split.apk" \
             --repo ${{ github.repository }} \
-            --title "v${APP_VERSION} Build #${BUILD_NUMBER} (${SHORT_SHA})" \
+            --title "v${APP_VERSION} Build #${BUILD_NUMBER} (${SHORT_SHA}) — ${TERMUX_PACKAGE_VARIANT}" \
             --notes "Build from branch \`${{ github.ref_name }}\` at commit \`${SHORT_SHA}\`.
             
             ## Cambios
             - Ve el changelog en [CHANGELOG.md](https://github.com/${{ github.repository }}/blob/${GITHUB_SHA}/CHANGELOG.md)
             - Versión: v${APP_VERSION} (build ${BUILD_NUMBER})
+            - Variant: ${TERMUX_PACKAGE_VARIANT}
             
             ## Tags disponibles
             - \`${RELEASE_TAG}\` — esta build específica
@@ -152,11 +168,14 @@ jobs:
 
           echo "✅ Release created: ${RELEASE_TAG}"
 
-          echo "🏷️ Updating nightly-split-latest tag..."
-          # Update the nightly-split-latest tag to point to this commit
-          git tag -f nightly-split-latest "${{ github.sha }}"
-          git push origin :refs/tags/nightly-split-latest 2>/dev/null || true
-          git push origin nightly-split-latest
+          echo "🏷️ Updating rolling tag..."
+          # Only update the rolling tag for the default (apt) variant
+          if [ "$TERMUX_PACKAGE_VARIANT" = "apt-android-7" ]; then
+            ROLLING_TAG="nightly-split-latest"
+            git tag -f "$ROLLING_TAG" "${{ github.sha }}"
+            git push origin ":refs/tags/$ROLLING_TAG" 2>/dev/null || true
+            git push origin "$ROLLING_TAG"
+          fi
 
           # Delete old builds (keep only last 10)
           echo "🧹 Cleaning up old releases (keeping last 10)..."
@@ -170,6 +189,6 @@ jobs:
             fi
           done
 
-          echo "✅ Latest tag updated: nightly-split-latest → ${SHORT_SHA}"
+          echo "✅ Rolling tag updated (if applicable): ${ROLLING_TAG:-none} → ${SHORT_SHA}"
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
