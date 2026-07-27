@@ -66,7 +66,7 @@ El documento cubre el modelo de datos, los parsers y writers para ambos formatos
 | AlpmWriter | pkgconv/writer/AlpmWriter.java | List<PackageModel> → escribe /var/lib/pacman/local/*/{desc,files,depends} |
 | PackageManagerConverter | pkgconv/PackageManagerConverter.java | Orquestador: detecta origen, parsea, convierte, escribe destino |
 | BootstrapSwapper | pkgconv/BootstrapSwapper.java | Intercambia binarios/config específicos del gestor |
-| PackageManagerDialog | termux/app/PackageManagerDialog.java | Diálogo "Elige tu gestor" en primera ejecución |
+| PackageManagerDialog | app/src/main/java/com/termux/app/PackageManagerDialog.java | Diálogo "Elige tu gestor" en primera ejecución |
 | PackageManagerSettings | termux/app/settings/ | Preferencia en Settings para ver/switch gestor |
 
 ## Modelo de Datos Canónico (PackageModel)
@@ -116,8 +116,23 @@ class PackageModel {
 4. Returns List<PackageModel>
 
 ### AlpmParser.java
-1. Lista /var/lib/pacman/local/*/ → c/u es un paquete
-2. Extrae nombre (último segmento numérico = pkgrel)
+1. Lista /var/lib/pacman/local/*/ → cada subdirectorio es un paquete
+2. Para extraer {name, version, rel} del nombre del directorio:
+   - Aplica reverse-split por '-'
+   - El último segmento (después del último '-') es pkgrel SI es completamente numérico (ej: "2")
+   - Si no es numérico, no hay pkgrel separable
+   - El penúltimo segmento es el inicio de version
+   - El resto (segmentos anteriores unidos con '-') es el nombre
+   - Regla de decisión: el version siempre contiene al menos un dígito, el nombre no. Pero en Termux hay nombres como "libfoo2". Entonces el algoritmo exacto es:
+     a) Split por '-' → parts[]
+     b) Desde el final: pkgrel = parts[last] si es solo dígitos
+     c) parts[last-1] = candidate_version. Si candidate_version contiene al menos un dígito → es version
+     d) parts[0..last-2] unidos por '-' = name
+     e) Si parts[last-1] NO contiene dígitos → no hay pkgrel separable, name = parts[:-1], version = parts[-1]
+   - Ejemplos: "bash-5.2.26-2" → name=bash, version=5.2.26, rel=2
+     "libfoo2-1.0-1" → name=libfoo2, version=1.0, rel=1
+     "zlib-1.2.13-1" → name=zlib, version=1.2.13, rel=1
+     "python-3.11.5" → name=python, version=3.11.5, rel= (sin pkgrel)
 3. Lee desc → parsea secciones %KEY%\nvalores\n\n
 4. Lee files → %FILES% (rutas) + %BACKUP% (ruta hash)
 5. Lee depends/install si existen
@@ -149,6 +164,10 @@ Intercambia los archivos específicos de cada gestor sin reinstalar TODO el boot
    - APT: bin/{apt,dpkg,pkg*}, lib/apt/, etc/apt/, var/lib/dpkg/
    - PACMAN: bin/pacman*, lib/pacman/, etc/pacman.d/, var/lib/pacman/
 4. NO tocar: home/, bin/bash, bin/ls, share/, etc/profile (compartidos)
+
+NOTA: BootstrapSwapper NO toca /var/lib/dpkg/ ni /var/lib/pacman/ — esas son responsabilidad
+exclusiva de los parsers/writers. BootstrapSwapper solo intercambia binarios (bin/, lib/)
+y archivos de configuración del gestor (etc/apt/ ↔ etc/pacman.d/).
 
 ## Integración con Sistema Actual
 
@@ -203,24 +222,70 @@ PACMAN → APT:
 6. Borrar /var/lib/pacman/local/
 7. Actualizar TERMUX_APP__PACKAGE_MANAGER
 
-### Rollback
-- Backup de la DB original antes de la conversión
-- Si falla, restaura backup + logs de error
-- Si se interrumpe, al reiniciar detecta estado inconsistente y restaura
+### Rollback y Detección de Estado Inconsistente
+
+**Mecanismo de persistencia de estado:**
+- PackageManagerConverter crea un archivo de lock en `$PREFIX/var/run/pm-convert.lock`
+- El lock contiene: JSON con {current_step, source_pm, target_pm, backup_path, timestamp}
+- Steps definidos: BACKUP_READY=0, PARSED=1, SWAPPED=2, WRITTEN=3, CLEANUP_DONE=4, COMPLETE=5
+- Cada paso escribre el step actual en el lock ANTES de ejecutar la operación
+
+**Detección de inconsistencia:**
+- Al iniciar TermuxActivity, si existe pm-convert.lock con step < 5 → conversión interrumpida
+- Se verifica el step actual:
+  - step 0-1: backup existe pero nada se tocó → restaurar backup, borrar lock
+  - step 2: swapper ejecutado pero writers no → restaurar backup completo
+  - step 3-4: writers parciales → restaurar backup completo
+  - step 5: lock residual (conversión OK) → borrar lock y continuar
+
+**Backup:**
+- Backup se almacena en `$PREFIX/var/backups/pm-convert/` con timestamp
+- Contiene copia comprimida (tar.gz) de:
+  - /var/lib/dpkg/ (para APT→PACMAN)
+  - /var/lib/pacman/ (para PACMAN→APT)
+  - /etc/apt/ o /etc/pacman.d/ (config del gestor origen)
+
+**Validación post-restauración:**
+- Después de restaurar backup, verificar que los archivos críticos existen:
+  - Para APT: /var/lib/dpkg/status debe existir y tener al menos una stanza
+  - Para PACMAN: /var/lib/pacman/local/ debe tener al menos un subdirectorio con desc
+- Si validación falla → error crítico, mostrar al usuario "Restore failed. Manual recovery needed."
 
 ## Casos Especiales
 
 | Caso | Acción |
 |------|--------|
-| Dependencias OR (pkg1 \| pkg2) | ALPM no soporta. Elegir primera opción + log |
+| Dependencias OR (pkg1 \| pkg2) | ALPM no soporta dependencias OR nativamente. Estrategia:
+  1. Verificar cuál de las opciones existe como paquete instalado actualmente (mirando filesystem)
+  2. Si existe una opción instalada → elegir esa
+  3. Si ninguna existe → elegir la primera opción y loguear advertencia
+  4. Si ambas existen → elegir la que tenga más dependencias compartidas con el paquete actual
+  Se genera un archivo de log `/data/data/com.termux/files/usr/var/log/pm-convert.log` con todas las decisiones de OR |
 | Essential: yes → %GROUPS% base | Mapear directo |
-| Scripts dpkg separados → ALPM install | Fusionar en funciones post_install(), pre_remove() |
+| Scripts dpkg separados → ALPM install | Mapeo exacto:
+  dpkg preinst → ALPM: no tiene equivalente exacto. Se omite (pre_install no existe en ALPM moderno)
+  dpkg postinst → ALPM: función post_install() en archivo install
+  dpkg prerm → ALPM: función pre_remove() en archivo install
+  dpkg postrm → ALPM: función post_remove() en archivo install
+  Si NO existen scripts → no crear archivo install
+  Si existen, concatenar en el archivo install con el formato:
+  ```
+  post_install() {
+  <contenido de postinst>
+  }
+  pre_remove() {
+  <contenido de prerm>
+  }
+  post_remove() {
+  <contenido de postrm>
+  }
+  ``` |
 | Architecture all → any | Mapear directo |
 | Paquetes con + en nombre | Ambos soportan, normal |
 
 ## Archivos a Crear/Modificar
 
-### Nuevos (12 archivos)
+### Nuevos (13 archivos)
 | Archivo | Líneas estimadas |
 |---------|-----------------|
 | pkgconv/model/PackageModel.java | 60 |
@@ -248,13 +313,23 @@ PACMAN → APT:
 | app/build.gradle | Nuevo variant pacman |
 | TermuxActivity.java | Integrar dialog (menor) |
 
-## Notas Técnicas Adicionales
+### URLs de Bootstrap y Checksums
 
-- El proyecto termux-pacman oficial usa repositorio: https://github.com/termux-pacman/termux-packages
-- Los bootstraps de pacman siguen el mismo patrón de URL: https://github.com/termux-pacman/termux-packages/releases/latest/download/bootstrap-{arch}.zip
-- El formato de las URLs build-time debe confirmarse con la API de releases de termux-pacman
-- Paquetes instalados por el usuario vs base del bootstrap: ambos se tratan igual en la conversión
-- HOME ($PREFIX/home) nunca se toca durante la conversión
+**APT bootstrap (runtime):**
+`https://github.com/termux/termux-packages/releases/latest/download/bootstrap-{arch}.zip`
+
+**PACMAN bootstrap (runtime):**
+`https://github.com/termux-pacman/termux-packages/releases/latest/download/bootstrap-{arch}.zip`
+
+**Validación runtime:**
+- Durante la descarga, se extrae el SHA-256 del header `Content-SHA256` (si disponible)
+- O se descarga el archivo `.sha256` adjacent: `bootstrap-{arch}.zip.sha256`
+- Si la validación falla, se reintenta con el mirror alternativo
+
+**Build-time (app/build.gradle):**
+- Para APT: versión pinneada con checksums SHA-256 conocidos (como ahora)
+- Para PACMAN: versión pinneada con checksums de termux-pacman releases
+- El pinning de versión se actualiza manualmente con cada release significativo
 
 ## Revisión
 
