@@ -6,7 +6,7 @@ on:
       package_variant:
         description: 'Package manager variant'
         required: true
-        default: 'apt-android-7'
+        default: 'pacman-android-7'
         type: choice
         options:
           - apt-android-7
@@ -22,7 +22,7 @@ concurrency:
 
 env:
   TERMUX_APP_VERSION_NAME: ${{ vars.TERMUX_APP_VERSION_NAME || '0.2.29-hotfix.1' }}
-  TERMUX_PACKAGE_VARIANT: ${{ github.event.inputs.package_variant || 'apt-android-7' }}
+  TERMUX_PACKAGE_VARIANT: ${{ github.event.inputs.package_variant || 'pacman-android-7' }}
   TERMUX_APK_VERSION_TAG: ${{ vars.TERMUX_APK_VERSION_TAG || '' }}
 
 jobs:
