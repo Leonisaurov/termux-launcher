@@ -70,8 +70,8 @@ public class TermuxShellEnvironment extends AndroidShellEnvironment {
         if (termuxAppEnvironment != null)
             environment.putAll(termuxAppEnvironment);
 
-        environment.put(ENV_TERMUX_APP__PACKAGE_MANAGER, getPackageManagerValue());
-        environment.put(ENV_TERMUX_APP__PACKAGE_VARIANT, getPackageVariantValue());
+        environment.put(TermuxAppShellEnvironment.ENV_TERMUX_APP__PACKAGE_MANAGER, getPackageManagerValue());
+        environment.put(TermuxAppShellEnvironment.ENV_TERMUX_APP__PACKAGE_VARIANT, getPackageVariantValue());
 
         /*
         HashMap<String, String> termuxApiAppEnvironment = TermuxAPIShellEnvironment.getEnvironment(currentPackageContext);
