@@ -249,6 +249,15 @@ final class TermuxInstaller {
                         throw new RuntimeException("Moving termux prefix staging to prefix directory failed");
                     }
 
+                    // Safety net: ensure all binaries have execute permissions
+                    String[] executableDirs = {"bin", "libexec", "lib/apt"};
+                    for (String dir : executableDirs) {
+                        File execDir = new File(TERMUX_PREFIX_DIR_PATH, dir);
+                        if (execDir.isDirectory()) {
+                            setExecutableRecursive(execDir);
+                        }
+                    }
+
                     // Run Termux bootstrap second stage
                     Logger.logInfo(LOG_TAG, "Running Termux bootstrap second stage.");
                     String termuxBootstrapSecondStageFile = TERMUX_PREFIX_DIR_PATH + "/" + BOOTSTRAP_SECOND_STAGE_NEW_PATH;
@@ -321,7 +330,13 @@ final class TermuxInstaller {
                     activity.finish();
                 }).setNeutralButton("Copy error", (dialog, which) -> {
                     ClipboardManager clipboard = (ClipboardManager) activity.getSystemService(Context.CLIPBOARD_SERVICE);
-                    ClipData clip = ClipData.newPlainText("bootstrap-error", message);
+                    String variantName = TermuxBootstrap.TERMUX_APP_PACKAGE_VARIANT != null ? TermuxBootstrap.TERMUX_APP_PACKAGE_VARIANT.getName() : "unknown";
+                    String fullError = message + "\n\n---\n" +
+                        "App: " + TermuxConstants.TERMUX_APP_NAME + "\n" +
+                        "Version: " + PackageUtils.getVersionNameForPackage(activity) + "\n" +
+                        "Variant: " + variantName + "\n" +
+                        "Time: " + new java.util.Date().toString();
+                    ClipData clip = ClipData.newPlainText("bootstrap-error", fullError);
                     if (clipboard != null) {
                         clipboard.setPrimaryClip(clip);
                     }
@@ -425,6 +440,18 @@ final class TermuxInstaller {
 
     private static Error ensureDirectoryExists(File directory) {
         return FileUtils.createDirectoryFile(directory.getAbsolutePath());
+    }
+
+    private static void setExecutableRecursive(File dir) {
+        File[] files = dir.listFiles();
+        if (files == null) return;
+        for (File f : files) {
+            if (f.isDirectory()) {
+                setExecutableRecursive(f);
+            } else if (f.isFile()) {
+                f.setExecutable(true);
+            }
+        }
     }
 
     private static URL determineZipUrl(Activity activity) throws MalformedURLException {
