@@ -220,22 +220,20 @@ final class TermuxInstaller {
                                         int readBytes;
                                         while ((readBytes = zipInput.read(buffer)) != -1) outStream.write(buffer, 0, readBytes);
                                     }
-                                    // Intentar leer permisos Unix de los atributos externos del ZIP entry
-                                    int unixMode = (zipEntry.getExternalAttributes() != 0) ?
-                                        (int) (zipEntry.getExternalAttributes() >> 16) & 0x1FF : 0;
-                                    if (unixMode != 0) {
-                                        // El ZIP tiene permisos Unix - úsalos directamente
+                                    // Los permisos Unix via getExternalAttributes() no están disponibles en Android SDK.
+                                    // En su lugar, normalizamos el path del entry y usamos patrones expandidos.
+                                    // Normalizar: quitar prefijo "./" si existe
+                                    String normalizedName = zipEntryName;
+                                    if (normalizedName.startsWith("./")) {
+                                        normalizedName = normalizedName.substring(2);
+                                    }
+                                    if (normalizedName.startsWith("bin/") || normalizedName.startsWith("libexec") ||
+                                        normalizedName.startsWith("lib/apt/") || normalizedName.startsWith("lib/pacman/") ||
+                                        normalizedName.startsWith("lib/terminfo") ||
+                                        normalizedName.equals(BOOTSTRAP_SECOND_STAGE_OLD_PATH) ||
+                                        normalizedName.equals(BOOTSTRAP_SECOND_STAGE_NEW_PATH)) {
                                         //noinspection OctalInteger
-                                        Os.chmod(targetFile.getAbsolutePath(), unixMode);
-                                    } else {
-                                        // Fallback: prefijos hardcodeados para ZIPs sin metadatos Unix
-                                        if (zipEntryName.startsWith("bin/") || zipEntryName.startsWith("libexec") ||
-                                            zipEntryName.startsWith("lib/apt/apt-helper") || zipEntryName.startsWith("lib/apt/methods") ||
-                                            zipEntryName.equals(BOOTSTRAP_SECOND_STAGE_OLD_PATH) ||
-                                            zipEntryName.equals(BOOTSTRAP_SECOND_STAGE_NEW_PATH)) {
-                                            //noinspection OctalInteger
-                                            Os.chmod(targetFile.getAbsolutePath(), 0700);
-                                        }
+                                        Os.chmod(targetFile.getAbsolutePath(), 0700);
                                     }
                                 }
                             }
