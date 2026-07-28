@@ -220,12 +220,22 @@ final class TermuxInstaller {
                                         int readBytes;
                                         while ((readBytes = zipInput.read(buffer)) != -1) outStream.write(buffer, 0, readBytes);
                                     }
-                                    if (zipEntryName.startsWith("bin/") || zipEntryName.startsWith("libexec") ||
-                                        zipEntryName.startsWith("lib/apt/apt-helper") || zipEntryName.startsWith("lib/apt/methods") ||
-                                        zipEntryName.equals(BOOTSTRAP_SECOND_STAGE_OLD_PATH) ||
-                                        zipEntryName.equals(BOOTSTRAP_SECOND_STAGE_NEW_PATH)) {
+                                    // Intentar leer permisos Unix de los atributos externos del ZIP entry
+                                    int unixMode = (zipEntry.getExternalAttributes() != 0) ?
+                                        (int) (zipEntry.getExternalAttributes() >> 16) & 0x1FF : 0;
+                                    if (unixMode != 0) {
+                                        // El ZIP tiene permisos Unix - úsalos directamente
                                         //noinspection OctalInteger
-                                        Os.chmod(targetFile.getAbsolutePath(), 0700);
+                                        Os.chmod(targetFile.getAbsolutePath(), unixMode);
+                                    } else {
+                                        // Fallback: prefijos hardcodeados para ZIPs sin metadatos Unix
+                                        if (zipEntryName.startsWith("bin/") || zipEntryName.startsWith("libexec") ||
+                                            zipEntryName.startsWith("lib/apt/apt-helper") || zipEntryName.startsWith("lib/apt/methods") ||
+                                            zipEntryName.equals(BOOTSTRAP_SECOND_STAGE_OLD_PATH) ||
+                                            zipEntryName.equals(BOOTSTRAP_SECOND_STAGE_NEW_PATH)) {
+                                            //noinspection OctalInteger
+                                            Os.chmod(targetFile.getAbsolutePath(), 0700);
+                                        }
                                     }
                                 }
                             }
