@@ -267,7 +267,7 @@ final class TermuxInstaller {
                     File idScriptFile = new File(TERMUX_PREFIX_DIR_PATH, "bin/id");
                     try {
                         int uid = android.os.Process.myUid();
-                        String idScript = "#!/data/data/com.termux/files/usr/bin/bash\n" +
+                        String idScript = "#!/system/bin/sh\n" +
                             "case \"${1:-}\" in\n" +
                             "  -u|-ru) echo \"" + uid + "\";;\n" +
                             "  *) echo \"uid=" + uid + "\";;\n" +

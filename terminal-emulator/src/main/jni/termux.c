@@ -134,17 +134,44 @@ static int create_subprocess(JNIEnv* env,
         if (errno == EACCES) {
             char const* prefix = getenv("PREFIX");
             if (prefix != NULL && path_starts_with(cmd, prefix)) {
-                char const* linker = find_system_linker();
-                if (linker != NULL) {
+                // Check if file is a script (starts with shebang)
+                int is_script = 0;
+                FILE *fp = fopen(cmd, "re");
+                if (fp) {
+                    char first_line[4] = {0};
+                    if (fgets(first_line, sizeof(first_line), fp) && first_line[0] == '#' && first_line[1] == '!') {
+                        is_script = 1;
+                    }
+                    fclose(fp);
+                }
+
+                if (is_script) {
+                    char const* system_sh = "/system/bin/sh";
                     int argc = 0;
                     while (argv != NULL && argv[argc] != NULL) argc++;
 
-                    char** wrapped_argv = (char**) calloc((size_t) argc + 3, sizeof(char*));
-                    if (wrapped_argv != NULL) {
-                        wrapped_argv[0] = (char*) linker;
-                        wrapped_argv[1] = (char*) cmd;
-                        for (int i = 0; i < argc; i++) wrapped_argv[i + 2] = argv[i];
-                        execv(linker, wrapped_argv);
+                    char** sh_argv = malloc((argc + 3) * sizeof(char*));
+                    if (sh_argv) {
+                        sh_argv[0] = (char*) system_sh;
+                        sh_argv[1] = (char*) cmd;
+                        for (int i = 1; i < argc; i++) sh_argv[i + 1] = argv[i];
+                        sh_argv[argc + 1] = NULL;
+                        execv(system_sh, sh_argv);
+                        free(sh_argv);
+                    }
+                } else {
+                    char const* linker = find_system_linker();
+                    if (linker != NULL) {
+                        int argc = 0;
+                        while (argv != NULL && argv[argc] != NULL) argc++;
+
+                        char** wrapped_argv = (char**) calloc((size_t) argc + 3, sizeof(char*));
+                        if (wrapped_argv != NULL) {
+                            wrapped_argv[0] = (char*) linker;
+                            wrapped_argv[1] = (char*) cmd;
+                            for (int i = 0; i < argc; i++) wrapped_argv[i + 2] = argv[i];
+                            execv(linker, wrapped_argv);
+                        }
                     }
                 }
             }
