@@ -258,11 +258,65 @@ final class TermuxInstaller {
                         }
                     }
 
-                    // The second-stage script (termux-bootstrap-second-stage.sh) is intentionally skipped
-                    // during initial extraction. It requires coreutils symlinks (id, chmod, ln, sed, head)
-                    // that don't exist yet — a chicken-and-egg problem. The upstream (termux/termux-app)
-                    // does not run this script either. It will execute automatically on first terminal launch.
-                    Logger.logInfo(LOG_TAG, "Skipping bootstrap second stage (will run on first terminal launch)");
+                    // Run Termux bootstrap second stage
+                    Logger.logInfo(LOG_TAG, "Running Termux bootstrap second stage.");
+
+                    // Create a wrapper for 'id' since the real id is a symlink to coreutils,
+                    // and Android 14+ blocks executing ELF binaries from app_data_file via SELinux.
+                    // This wrapper returns the app's UID without executing the actual ELF binary.
+                    File idScriptFile = new File(TERMUX_PREFIX_DIR_PATH, "bin/id");
+                    try {
+                        int uid = android.os.Process.myUid();
+                        String idScript = "#!/data/data/com.termux/files/usr/bin/bash\n" +
+                            "case \"${1:-}\" in\n" +
+                            "  -u|-ru) echo \"" + uid + "\";;\n" +
+                            "  *) echo \"uid=" + uid + "\";;\n" +
+                            "esac\n";
+                        FileOutputStream fos = new FileOutputStream(idScriptFile);
+                        fos.write(idScript.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+                        fos.close();
+                        Os.chmod(idScriptFile.getAbsolutePath(), 0700);
+                    } catch (Exception e) {
+                        Logger.logErrorExtended(LOG_TAG, "Failed to create id wrapper: " + e.getMessage());
+                    }
+
+                    String termuxBootstrapSecondStageFile = TERMUX_PREFIX_DIR_PATH + "/" + BOOTSTRAP_SECOND_STAGE_NEW_PATH;
+                    if (!FileUtils.fileExists(termuxBootstrapSecondStageFile, false)) {
+                        termuxBootstrapSecondStageFile = TERMUX_PREFIX_DIR_PATH + "/" + BOOTSTRAP_SECOND_STAGE_OLD_PATH;
+                    }
+                    if (FileUtils.fileExists(termuxBootstrapSecondStageFile, false)) {
+                        String termuxBashFile = TERMUX_PREFIX_DIR_PATH + "/bin/bash";
+                        ExecutionCommand executionCommand = new ExecutionCommand(-1,
+                                termuxBashFile, new String[]{termuxBootstrapSecondStageFile}, null,
+                                null, ExecutionCommand.Runner.APP_SHELL.getName(), false);
+                        executionCommand.commandLabel = "Termux Bootstrap Second Stage Command";
+                        executionCommand.backgroundCustomLogLevel = Logger.LOG_LEVEL_NORMAL;
+                        HashMap<String, String> extraEnv = new HashMap<>();
+                        TermuxAppSharedPreferences prefs = TermuxAppSharedPreferences.build(activity);
+                        if (prefs != null) {
+                            String pmPref = prefs.getPackageManagerPreference();
+                            if (pmPref != null && !pmPref.isEmpty()) {
+                                extraEnv.put(TermuxAppShellEnvironment.ENV_TERMUX_APP__PACKAGE_MANAGER, pmPref);
+                                if ("pacman".equals(pmPref)) {
+                                    extraEnv.put(TermuxAppShellEnvironment.ENV_TERMUX_APP__PACKAGE_VARIANT, "pacman-android-7");
+                                } else {
+                                    extraEnv.put(TermuxAppShellEnvironment.ENV_TERMUX_APP__PACKAGE_VARIANT,
+                                        TermuxBootstrap.TERMUX_APP_PACKAGE_VARIANT != null
+                                            ? TermuxBootstrap.TERMUX_APP_PACKAGE_VARIANT.getName()
+                                            : "apt-android-7");
+                                }
+                            }
+                        }
+                        AppShell appShell = AppShell.execute(activity, executionCommand, null, new TermuxShellEnvironment(), extraEnv.isEmpty() ? null : extraEnv, true);
+                        if (appShell == null || !executionCommand.isSuccessful() || executionCommand.resultData.exitCode != 0) {
+                            error = FileUtils.deleteFile("termux prefix directory", TERMUX_PREFIX_DIR_PATH, true);
+                            if (error != null)
+                                Logger.logErrorExtended(LOG_TAG, error.toString());
+
+                            showBootstrapErrorDialog(activity, whenDone, MarkdownUtils.getMarkdownCodeForString(executionCommand.toString(), true));
+                            return;
+                        }
+                    }
 
                     Logger.logInfo(LOG_TAG, "Bootstrap packages installed successfully.");
                     // Recreate env file since termux prefix was wiped earlier
