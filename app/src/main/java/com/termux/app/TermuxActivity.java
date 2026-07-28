@@ -7600,10 +7600,14 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
     private String detectUpdateVariant() {
         try {
             PackageManagerConverter pmConverter = new PackageManagerConverter();
-            return switch (pmConverter.detectCurrentPackageManager()) {
-                case PACMAN -> "pacman";
-                case APT, default -> "apt";
-            };
+            PackageManagerConverter.PackageManager currentPM = pmConverter.detectCurrentPackageManager();
+            switch (currentPM) {
+                case PACMAN:
+                    return "pacman";
+                case APT:
+                default:
+                    return "apt";
+            }
         } catch (IOException e) {
             return "apt";
         }
