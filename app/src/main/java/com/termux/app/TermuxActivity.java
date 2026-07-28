@@ -174,6 +174,7 @@ import java.util.Set;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
+import java.io.IOException;
 import java.io.InputStream;
 import java.net.HttpURLConnection;
 import java.net.URL;
@@ -7597,17 +7598,21 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
      * Constructs download URL directly from release tag (no gh CLI needed).
      */
     private void downloadAndInstallUpdate() {
-        PackageManagerConverter pmConverter = new PackageManagerConverter(this);
-        PackageManagerConverter.PackageManagerType currentPM = pmConverter.detectCurrentPackageManager();
         final String variant;
-        switch (currentPM) {
-            case PACMAN:
-                variant = "pacman";
-                break;
-            case APT:
-            default:
-                variant = "apt";
-                break;
+        try {
+            PackageManagerConverter pmConverter = new PackageManagerConverter();
+            PackageManagerConverter.PackageManager currentPM = pmConverter.detectCurrentPackageManager();
+            switch (currentPM) {
+                case PACMAN:
+                    variant = "pacman";
+                    break;
+                case APT:
+                default:
+                    variant = "apt";
+                    break;
+            }
+        } catch (IOException e) {
+            variant = "apt";
         }
 
         String apkUrl = "https://github.com/PickleHik3/termux-launcher/releases/latest/download/termux-app-" + variant + ".apk";
