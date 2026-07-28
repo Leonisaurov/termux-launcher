@@ -783,7 +783,7 @@ public class TermuxAppSharedPreferences extends AppSharedPreferences {
     }
 
     public void setPackageManagerPreference(String packageManager) {
-        mSharedPreferences.edit().putString(KEY_PACKAGE_MANAGER, packageManager).apply();
+        mSharedPreferences.edit().putString(KEY_PACKAGE_MANAGER, packageManager).commit();
     }
 
     public int getLogLevel() {
