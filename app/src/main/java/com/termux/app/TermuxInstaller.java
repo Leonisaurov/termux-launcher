@@ -258,46 +258,11 @@ final class TermuxInstaller {
                         }
                     }
 
-                    // Run Termux bootstrap second stage
-                    Logger.logInfo(LOG_TAG, "Running Termux bootstrap second stage.");
-                    String termuxBootstrapSecondStageFile = TERMUX_PREFIX_DIR_PATH + "/" + BOOTSTRAP_SECOND_STAGE_NEW_PATH;
-                    if (!FileUtils.fileExists(termuxBootstrapSecondStageFile, false)) {
-                        termuxBootstrapSecondStageFile = TERMUX_PREFIX_DIR_PATH + "/" + BOOTSTRAP_SECOND_STAGE_OLD_PATH;
-                    }
-                    if (FileUtils.fileExists(termuxBootstrapSecondStageFile, false)) {
-                        String termuxBashFile = TERMUX_PREFIX_DIR_PATH + "/bin/bash";
-                        ExecutionCommand executionCommand = new ExecutionCommand(-1,
-                                termuxBashFile, new String[]{termuxBootstrapSecondStageFile}, null,
-                                null, ExecutionCommand.Runner.APP_SHELL.getName(), false);
-                        executionCommand.commandLabel = "Termux Bootstrap Second Stage Command";
-                        executionCommand.backgroundCustomLogLevel = Logger.LOG_LEVEL_NORMAL;
-                        HashMap<String, String> extraEnv = new HashMap<>();
-                        TermuxAppSharedPreferences prefs = TermuxAppSharedPreferences.build(activity);
-                        if (prefs != null) {
-                            String pmPref = prefs.getPackageManagerPreference();
-                            if (pmPref != null && !pmPref.isEmpty()) {
-                                extraEnv.put(TermuxAppShellEnvironment.ENV_TERMUX_APP__PACKAGE_MANAGER, pmPref);
-                                if ("pacman".equals(pmPref)) {
-                                    extraEnv.put(TermuxAppShellEnvironment.ENV_TERMUX_APP__PACKAGE_VARIANT, "pacman-android-7");
-                                } else {
-                                    extraEnv.put(TermuxAppShellEnvironment.ENV_TERMUX_APP__PACKAGE_VARIANT,
-                                        TermuxBootstrap.TERMUX_APP_PACKAGE_VARIANT != null
-                                            ? TermuxBootstrap.TERMUX_APP_PACKAGE_VARIANT.getName()
-                                            : "apt-android-7");
-                                }
-                            }
-                        }
-                        AppShell appShell = AppShell.execute(activity, executionCommand, null, new TermuxShellEnvironment(), extraEnv.isEmpty() ? null : extraEnv, true);
-                        if (appShell == null || !executionCommand.isSuccessful() || executionCommand.resultData.exitCode != 0) {
-                            // Delete prefix directory as otherwise when app is restarted, the broken prefix directory would be used and logged into
-                            error = FileUtils.deleteFile("termux prefix directory", TERMUX_PREFIX_DIR_PATH, true);
-                            if (error != null)
-                                Logger.logErrorExtended(LOG_TAG, error.toString());
-
-                            showBootstrapErrorDialog(activity, whenDone, MarkdownUtils.getMarkdownCodeForString(executionCommand.toString(), true));
-                            return;
-                        }
-                    }
+                    // The second-stage script (termux-bootstrap-second-stage.sh) is intentionally skipped
+                    // during initial extraction. It requires coreutils symlinks (id, chmod, ln, sed, head)
+                    // that don't exist yet — a chicken-and-egg problem. The upstream (termux/termux-app)
+                    // does not run this script either. It will execute automatically on first terminal launch.
+                    Logger.logInfo(LOG_TAG, "Skipping bootstrap second stage (will run on first terminal launch)");
 
                     Logger.logInfo(LOG_TAG, "Bootstrap packages installed successfully.");
                     // Recreate env file since termux prefix was wiped earlier
