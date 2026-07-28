@@ -3,12 +3,15 @@ package com.termux.app;
 import android.app.Activity;
 import android.app.AlertDialog;
 import android.app.ProgressDialog;
+import android.content.ClipData;
+import android.content.ClipboardManager;
 import android.content.Context;
 import android.os.Build;
 import android.os.Environment;
 import android.system.Os;
 import android.util.Pair;
 import android.view.WindowManager;
+import android.widget.Toast;
 import com.termux.R;
 import com.termux.shared.file.FileUtils;
 import com.termux.shared.shell.command.ExecutionCommand;
@@ -304,9 +307,17 @@ final class TermuxInstaller {
         sendBootstrapCrashReportNotification(activity, message);
         activity.runOnUiThread(() -> {
             try {
-                new AlertDialog.Builder(activity).setTitle(R.string.bootstrap_error_title).setMessage(R.string.bootstrap_error_body).setNegativeButton(R.string.bootstrap_error_abort, (dialog, which) -> {
+                String displayMessage = activity.getString(R.string.bootstrap_error_body) + "\n\n" + message;
+                new AlertDialog.Builder(activity).setTitle(R.string.bootstrap_error_title).setMessage(displayMessage).setNegativeButton(R.string.bootstrap_error_abort, (dialog, which) -> {
                     dialog.dismiss();
                     activity.finish();
+                }).setNeutralButton("Copy error", (dialog, which) -> {
+                    ClipboardManager clipboard = (ClipboardManager) activity.getSystemService(Context.CLIPBOARD_SERVICE);
+                    ClipData clip = ClipData.newPlainText("bootstrap-error", message);
+                    if (clipboard != null) {
+                        clipboard.setPrimaryClip(clip);
+                    }
+                    Toast.makeText(activity, "Error copied to clipboard", Toast.LENGTH_SHORT).show();
                 }).setPositiveButton(R.string.bootstrap_error_try_again, (dialog, which) -> {
                     dialog.dismiss();
                     FileUtils.deleteFile("termux prefix directory", TERMUX_PREFIX_DIR_PATH, true);
