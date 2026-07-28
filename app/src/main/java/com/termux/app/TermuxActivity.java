@@ -7597,23 +7597,20 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
      * Download the latest APK from GitHub Releases and trigger installation.
      * Constructs download URL directly from release tag (no gh CLI needed).
      */
-    private void downloadAndInstallUpdate() {
-        final String variant;
+    private String detectUpdateVariant() {
         try {
             PackageManagerConverter pmConverter = new PackageManagerConverter();
-            PackageManagerConverter.PackageManager currentPM = pmConverter.detectCurrentPackageManager();
-            switch (currentPM) {
-                case PACMAN:
-                    variant = "pacman";
-                    break;
-                case APT:
-                default:
-                    variant = "apt";
-                    break;
-            }
+            return switch (pmConverter.detectCurrentPackageManager()) {
+                case PACMAN -> "pacman";
+                case APT, default -> "apt";
+            };
         } catch (IOException e) {
-            variant = "apt";
+            return "apt";
         }
+    }
+
+    private void downloadAndInstallUpdate() {
+        final String variant = detectUpdateVariant();
 
         String apkUrl = "https://github.com/PickleHik3/termux-launcher/releases/latest/download/termux-app-" + variant + ".apk";
 

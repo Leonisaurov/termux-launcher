@@ -1,80 +1,12 @@
-## Report Info
-
-
-**User Action**: `crash report`  
-**Sender**: `TermuxActivity`  
-**Report Timestamp**: `2026-07-25 16:09:37.659 UTC`  
-##
-
-## Crash Details
-
-**Crash Thread**: `Thread[main,5,main]`  
-**Crash Timestamp**: `2026-07-25 16:04:28.880 UTC`  
-
-**Crash Message**:
-```
-stack size 8188KB
-```
-
-
-### Stacktrace
-
-```
-java.lang.StackOverflowError: stack size 8188KB
-	at com.termux.app.terminal.TermuxSessionsListViewController.notifyDataSetChanged(TermuxSessionsListViewController.java:155)
-	at com.termux.app.terminal.TermuxSessionsListViewController.rebuildGroupedList(TermuxSessionsListViewController.java:86)
-	at com.termux.app.terminal.TermuxSessionsListViewController.notifyDataSetChanged(TermuxSessionsListViewController.java:155)
-	at com.termux.app.terminal.TermuxSessionsListViewController.rebuildGroupedList(TermuxSessionsListViewController.java:86)
-	at com.termux.app.terminal.TermuxSessionsListViewController.notifyDataSetChanged(TermuxSessionsListViewController.java:155)
-	at com.termux.app.terminal.TermuxSessionsListViewController.rebuildGroupedList(TermuxSessionsListViewController.java:86)
-	at com.termux.app.terminal.TermuxSessionsListViewController.notifyDataSetChanged(TermuxSessionsListViewController.java:155)
-	at com.termux.app.terminal.TermuxSessionsListViewController.rebuildGroupedList(TermuxSessionsListViewController.java:86)
-	at com.termux.app.terminal.TermuxSessionsListViewController.notifyDataSetChanged(TermuxSessionsListViewController.java:155)
-	at com.termux.app.terminal.TermuxSessionsListViewController.rebuildGroupedList(TermuxSessionsListViewController.java:86)
-	at com.termux.app.terminal.TermuxSessionsListViewController.notifyDataSetChanged(TermuxSessionsListViewController.java:155)
-	at com.termux.app.terminal.TermuxSessionsListViewController.rebuildGroupedList(TermuxSessionsListViewController.java:86)
-	at com.termux.app.terminal.TermuxSessionsListViewController.notifyDataSetChanged(TermuxSessionsListViewController.java:155)
-	at com.termux.app.terminal.TermuxSessionsListViewController.rebuildGroupedList(TermuxSessionsListViewController.java:86)
-	at com.termux.app.terminal.TermuxSessionsListViewController.notifyDataSetChanged(TermuxSessionsListViewController.java:155)
-	at com.termux.app.terminal.TermuxSessionsListViewController.rebuildGroupedList(TermuxSessionsListViewController.java:86)
-	at com.termux.app.terminal.TermuxSessionsListViewController.notifyDataSetChanged(TermuxSessionsListViewController.java:155)
-	at com.termux.app.terminal.TermuxSessionsListViewController.rebuildGroupedList(TermuxSessionsListViewController.java:86)
-	at com.termux.app.terminal.TermuxSessionsListViewController.notifyDataSetChanged(TermuxSessionsListViewController.java:155)
-	at com.termux.app.terminal.TermuxSessionsListViewController.rebuildGroupedList(TermuxSessionsListViewController.java:86)
-	at com.termux.app.terminal.TermuxSessionsListViewController.notifyDataSetChanged(TermuxSessionsListViewController.java:155)
-	at com.termux.app.terminal.TermuxSessionsListViewController.rebuildGroupedList(TermuxSessionsListViewController.java:86)
-	at com.termux.app.terminal.TermuxSessionsListViewController.notifyDataSetChanged(TermuxSessionsListViewController.java:155)
-	at com.termux.app.terminal.TermuxSessionsListViewController.rebuildGroupedList(TermuxSessionsListViewController.java:86)
-	at com.termux.app.terminal.TermuxSessionsListViewController.notifyDataSetChanged(TermuxSessionsListViewController.java:155)
-	at com.termux.app.terminal.TermuxSessionsListViewController.rebuildGroupedList(TermuxSessionsListViewController.java:86)
-	at com.termux.app.terminal.TermuxSessionsListViewController.notifyDataSetChanged(TermuxSessionsListViewController.java:155)
-	at com.termux.app.terminal.TermuxSessionsListViewController.rebuildGroupedList(TermuxSessionsListViewController.java:86)
-	at com.termux.app.terminal.TermuxSessionsListViewController.notifyDataSetChanged(TermuxSessionsListViewController.java:155)
-	at com.termux.app.terminal.TermuxSessionsListViewController.rebuildGroupedList(TermuxSessionsListViewController.java:86)
-	at com.termux.app.ter
-05:57:36 main.go:26: === gita started ===
-06:14:41 main.go:26: === gita started ===
-06:30:56 main.go:26: === gita started ===
-06:33:39 main.go:26: === gita started ===
-06:37:32 main.go:26: === gita started ===
-06:39:46 main.go:26: === gita started ===
-06:52:56 main.go:26: === gita started ===
-06:56:42 main.go:26: === gita started ===
-07:18:51 main.go:26: === gita started ===
-07:23:13 main.go:26: === gita started ===
-07:26:07 main.go:26: === gita started ===
-07:27:38 main.go:26: === gita started ===
-07:43:16 main.go:26: === gita started ===
-07:44:53 main.go:26: === gita started ===
-07:46:49 main.go:26: === gita started ===
-07:47:03 main.go:26: === gita started ===
-08:00:16 main.go:26: === gita started ===
-08:01:53 main.go:26: === gita started ===
-08:05:58 main.go:26: === gita started ===
-08:19:41 main.go:26: === gita started ===
-08:23:56 main.go:26: === gita started ===
-08:27:14 main.go:26: === gita started ===
-19:05:09 main.go:26: === gita started ===
-20:12:05 main.go:26: === gita started ===
-20:15:56 main.go:26: === gita started ===
-20:16:14 main.go:26: === gita started ===
+FATAL EXCEPTION: Thread-7
+Process: com.termux, PID: 8701
+java.lang.IllegalArgumentException: com.termux: Targeting S+ (version 31 and above) requires that one of FLAG_IMMUTABLE or FLAG_MUTABLE be specified when creating a PendingIntent.
+Strongly consider using FLAG_IMMUTABLE, only use FLAG_MUTABLE if some functionality depends on the PendingIntent being mutable, e.g. if it needs to be used with inline replies or bubbles.
+	at android.app.PendingIntent.checkFlags(PendingIntent.java:408)
+	at android.app.PendingIntent.getBroadcastAsUser(PendingIntent.java:688)
+	at android.app.PendingIntent.getBroadcast(PendingIntent.java:675)
+	at com.termux.app.TermuxActivity$17.sendCrashReportNotification(r8-map-id-7e9cb8873b9db821634803b65e90d3f7ddb689b36011d167d7e52c277d67bdb3:232)
+	at kotlin.math.MathKt.sendBootstrapCrashReportNotification(Unknown Source:500)
+	at kotlin.math.MathKt.showBootstrapErrorDialog(Unknown Source:20)
+	at com.termux.app.TermuxInstaller$2.run(r8-map-id-7e9cb8873b9db821634803b65e90d3f7ddb689b36011d167d7e52c277d67bdb3:749)
+03:54:57 main.go:26: === gita started ===
