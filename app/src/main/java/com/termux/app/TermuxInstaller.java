@@ -22,8 +22,10 @@ import com.termux.shared.errors.Error;
 import com.termux.shared.android.PackageUtils;
 import com.termux.shared.termux.TermuxConstants;
 import com.termux.shared.termux.TermuxUtils;
+import com.termux.shared.termux.shell.command.environment.TermuxAppShellEnvironment;
 import com.termux.shared.termux.shell.command.environment.TermuxShellEnvironment;
 import com.termux.shared.termux.settings.preferences.TermuxAppSharedPreferences;
+import com.termux.shared.termux.TermuxBootstrap;
 import com.termux.pkgconv.PackageManagerConverter;
 import java.io.BufferedReader;
 import java.io.File;
@@ -33,6 +35,7 @@ import java.net.MalformedURLException;
 import java.net.URL;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.List;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
@@ -248,7 +251,23 @@ final class TermuxInstaller {
                                 null, ExecutionCommand.Runner.APP_SHELL.getName(), false);
                         executionCommand.commandLabel = "Termux Bootstrap Second Stage Command";
                         executionCommand.backgroundCustomLogLevel = Logger.LOG_LEVEL_NORMAL;
-                        AppShell appShell = AppShell.execute(activity, executionCommand, null, new TermuxShellEnvironment(), null, true);
+                        HashMap<String, String> extraEnv = new HashMap<>();
+                        TermuxAppSharedPreferences prefs = TermuxAppSharedPreferences.build(activity);
+                        if (prefs != null) {
+                            String pmPref = prefs.getPackageManagerPreference();
+                            if (pmPref != null && !pmPref.isEmpty()) {
+                                extraEnv.put(TermuxAppShellEnvironment.ENV_TERMUX_APP__PACKAGE_MANAGER, pmPref);
+                                if ("pacman".equals(pmPref)) {
+                                    extraEnv.put(TermuxAppShellEnvironment.ENV_TERMUX_APP__PACKAGE_VARIANT, "pacman-android-7");
+                                } else {
+                                    extraEnv.put(TermuxAppShellEnvironment.ENV_TERMUX_APP__PACKAGE_VARIANT,
+                                        TermuxBootstrap.TERMUX_APP_PACKAGE_VARIANT != null
+                                            ? TermuxBootstrap.TERMUX_APP_PACKAGE_VARIANT.getName()
+                                            : "apt-android-7");
+                                }
+                            }
+                        }
+                        AppShell appShell = AppShell.execute(activity, executionCommand, null, new TermuxShellEnvironment(), extraEnv.isEmpty() ? null : extraEnv, true);
                         if (appShell == null || !executionCommand.isSuccessful() || executionCommand.resultData.exitCode != 0) {
                             // Delete prefix directory as otherwise when app is restarted, the broken prefix directory would be used and logged into
                             error = FileUtils.deleteFile("termux prefix directory", TERMUX_PREFIX_DIR_PATH, true);
