@@ -11,6 +11,7 @@ import com.termux.shared.shell.command.environment.ShellEnvironmentUtils;
 import com.termux.shared.shell.command.environment.ShellCommandShellEnvironment;
 import com.termux.shared.termux.TermuxBootstrap;
 import com.termux.shared.termux.TermuxConstants;
+import com.termux.shared.termux.settings.preferences.TermuxAppSharedPreferences;
 import com.termux.shared.termux.shell.TermuxShellUtils;
 import java.nio.charset.Charset;
 import java.util.HashMap;
@@ -70,8 +71,26 @@ public class TermuxShellEnvironment extends AndroidShellEnvironment {
         if (termuxAppEnvironment != null)
             environment.putAll(termuxAppEnvironment);
 
-        environment.put(TermuxAppShellEnvironment.ENV_TERMUX_APP__PACKAGE_MANAGER, getPackageManagerValue());
-        environment.put(TermuxAppShellEnvironment.ENV_TERMUX_APP__PACKAGE_VARIANT, getPackageVariantValue());
+        String runtimePM = null;
+        TermuxAppSharedPreferences prefs = TermuxAppSharedPreferences.build(currentPackageContext);
+        if (prefs != null) {
+            String pmPref = prefs.getPackageManagerPreference();
+            if (pmPref != null && !pmPref.isEmpty()) {
+                runtimePM = pmPref;
+            }
+        }
+
+        if (runtimePM != null) {
+            environment.put(TermuxAppShellEnvironment.ENV_TERMUX_APP__PACKAGE_MANAGER, runtimePM);
+            if ("pacman".equals(runtimePM)) {
+                environment.put(TermuxAppShellEnvironment.ENV_TERMUX_APP__PACKAGE_VARIANT, "pacman-android-7");
+            } else {
+                environment.put(TermuxAppShellEnvironment.ENV_TERMUX_APP__PACKAGE_VARIANT, "apt-android-7");
+            }
+        } else {
+            environment.put(TermuxAppShellEnvironment.ENV_TERMUX_APP__PACKAGE_MANAGER, getPackageManagerValue());
+            environment.put(TermuxAppShellEnvironment.ENV_TERMUX_APP__PACKAGE_VARIANT, getPackageVariantValue());
+        }
 
         /*
         HashMap<String, String> termuxApiAppEnvironment = TermuxAPIShellEnvironment.getEnvironment(currentPackageContext);
