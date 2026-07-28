@@ -7597,11 +7597,20 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
      * Constructs download URL directly from release tag (no gh CLI needed).
      */
     private void downloadAndInstallUpdate() {
-        TermuxAppSharedPreferences prefs = TermuxAppSharedPreferences.build(this, false);
-        String pm = (prefs != null) ? prefs.getPackageManagerPreference() : null;
-        final String variant = (pm != null) ? pm : "apt";
+        PackageManagerConverter pmConverter = new PackageManagerConverter(this);
+        PackageManagerConverter.PackageManagerType currentPM = pmConverter.detectCurrentPackageManager();
+        final String variant;
+        switch (currentPM) {
+            case PACMAN:
+                variant = "pacman";
+                break;
+            case APT:
+            default:
+                variant = "apt";
+                break;
+        }
 
-        String apkUrl = "https://github.com/Leonisaurov/termux-launcher/releases/latest/download/termux-app-" + variant + ".apk";
+        String apkUrl = "https://github.com/PickleHik3/termux-launcher/releases/latest/download/termux-app-" + variant + ".apk";
 
         ProgressDialog progress = new ProgressDialog(this);
         progress.setTitle("Downloading Update");
@@ -7657,6 +7666,22 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
     }
 
     private void installApk(File apkFile) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            if (!getPackageManager().canRequestPackageInstalls()) {
+                new AlertDialog.Builder(this)
+                    .setTitle("Install unknown apps")
+                    .setMessage("Termux:Monet needs permission to install APKs. Please enable 'Install unknown apps' for this app.")
+                    .setPositiveButton("Open Settings", (dialog, which) -> {
+                        Intent settingsIntent = new Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES);
+                        settingsIntent.setData(Uri.parse("package:" + getPackageName()));
+                        startActivity(settingsIntent);
+                    })
+                    .setNegativeButton("Cancel", null)
+                    .show();
+                return;
+            }
+        }
+
         Uri apkUri = FileProvider.getUriForFile(this,
             getPackageName() + ".fileProvider", apkFile);
 
@@ -7699,17 +7724,8 @@ public final class TermuxActivity extends AppCompatActivity implements ServiceCo
      * Toggle zoom: make the focused pane fill the screen temporarily.
      */
     public void toggleZoomPane() {
-        if (mSplitLayout == null || mSplitLayout.getPaneCount() <= 1) return;
-        int targetIndex = mSplitLayout.getFocusedPaneIndex();
-        while (mSplitLayout.getPaneCount() > 1) {
-            if (mSplitLayout.getFocusedPaneIndex() == 0 && targetIndex > 0) {
-                mSplitLayout.closeFocusedPane();
-                targetIndex--;
-            } else if (mSplitLayout.getFocusedPaneIndex() == 1 && targetIndex == 0) {
-                mSplitLayout.closeFocusedPane();
-            } else {
-                mSplitLayout.focusNext();
-            }
+        if (mSplitLayout != null) {
+            mSplitLayout.toggleZoomFocusedPane();
         }
     }
 

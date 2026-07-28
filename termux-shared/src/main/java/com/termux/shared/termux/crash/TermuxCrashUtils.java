@@ -295,7 +295,7 @@ public class TermuxCrashUtils implements CrashHandler.CrashHandlerClient {
 
         PendingIntent deleteIntent = null;
         if (result.deleteIntent != null)
-            deleteIntent = PendingIntent.getBroadcast(termuxPackageContext, nextNotificationId, result.deleteIntent, PendingIntent.FLAG_UPDATE_CURRENT);
+            deleteIntent = PendingIntent.getBroadcast(termuxPackageContext, nextNotificationId, result.deleteIntent, PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
         // Setup the notification channel if not already set up
         setupCrashReportsNotificationChannel(termuxPackageContext);
         // Use markdown in notification

@@ -58,6 +58,11 @@ public class TermuxSplitLayout extends ViewGroup implements View.OnDragListener 
     private float mDragStartY;
     private float mDragStartRatio;
 
+    private boolean mIsZoomed = false;
+    private SplitNode mZoomSavedRootNode = null;
+    private int mZoomSavedFocusedPaneIndex = 0;
+    private final List<TerminalView> mZoomSavedViews = new ArrayList<>();
+
     private final List<Rect> mPaneRects = new ArrayList<>();
     private final List<Rect> mDividerRects = new ArrayList<>();
     private final Map<TerminalView, LeafNode> mViewToLeafMap = new HashMap<>();
@@ -215,6 +220,77 @@ public class TermuxSplitLayout extends ViewGroup implements View.OnDragListener 
 
         requestLayout();
         return true;
+    }
+
+    public void toggleZoomFocusedPane() {
+        if (mIsZoomed) {
+            if (mZoomSavedRootNode == null) return;
+            mRootNode = mZoomSavedRootNode;
+            mFocusedPaneIndex = mZoomSavedFocusedPaneIndex;
+            mIsZoomed = false;
+            mViewToLeafMap.clear();
+            List<LeafNode> newLeaves = new ArrayList<>();
+            collectLeaves(mRootNode, newLeaves);
+            for (int i = 0; i < mZoomSavedViews.size() && i < newLeaves.size(); i++) {
+                TerminalView tv = mZoomSavedViews.get(i);
+                if (tv.getParent() == null) {
+                    addView(tv, new LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT));
+                }
+                mViewToLeafMap.put(tv, newLeaves.get(i));
+                setupPaneFocusTracking(tv);
+            }
+            mZoomSavedViews.clear();
+            mZoomSavedRootNode = null;
+            invalidate();
+            notifyPaneFocused();
+            requestLayout();
+        } else {
+            if (getPaneCount() <= 1) return;
+            LeafNode focusedLeaf = findLeafAt(mRootNode, mFocusedPaneIndex, new int[]{0});
+            if (focusedLeaf == null) return;
+            mZoomSavedRootNode = deepCopyTree(mRootNode);
+            mZoomSavedFocusedPaneIndex = mFocusedPaneIndex;
+            mZoomSavedViews.clear();
+            {
+                List<LeafNode> leaves = new ArrayList<>();
+                collectLeaves(mRootNode, leaves);
+                for (LeafNode leaf : leaves) {
+                    TerminalView tv = getTerminalViewByLeafOrder(leaf);
+                    if (tv != null) {
+                        mZoomSavedViews.add(tv);
+                    }
+                }
+            }
+            TerminalView focusedView = getFocusedTerminalView();
+            List<TerminalView> viewsToDetach = new ArrayList<>();
+            for (Map.Entry<TerminalView, LeafNode> entry : mViewToLeafMap.entrySet()) {
+                TerminalView tv = entry.getKey();
+                if (tv != focusedView) {
+                    viewsToDetach.add(tv);
+                }
+            }
+            for (TerminalView tv : viewsToDetach) {
+                mViewToLeafMap.remove(tv);
+                removeView(tv);
+            }
+            mRootNode = focusedLeaf;
+            mFocusedPaneIndex = 0;
+            mIsZoomed = true;
+            invalidate();
+            notifyPaneFocused();
+            requestLayout();
+        }
+    }
+
+    private SplitNode deepCopyTree(SplitNode node) {
+        if (node instanceof LeafNode) {
+            LeafNode ln = (LeafNode) node;
+            return new LeafNode(ln.sessionIndex);
+        } else if (node instanceof BranchNode) {
+            BranchNode bn = (BranchNode) node;
+            return new BranchNode(bn.orientation, bn.ratio, deepCopyTree(bn.first), deepCopyTree(bn.second));
+        }
+        return null;
     }
 
     public void focusNext() {

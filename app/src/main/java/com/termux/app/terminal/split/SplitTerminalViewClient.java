@@ -167,19 +167,9 @@ public class SplitTerminalViewClient implements TerminalViewClient {
     }
 
     private void toggleZoomPane() {
-        if (mSplitLayout == null || mSplitLayout.getPaneCount() <= 1) return;
-
-        TerminalView targetView = mSplitLayout.getFocusedTerminalView();
-        if (targetView == null) return;
-
-        for (int i = mSplitLayout.getPaneCount() - 1; i >= 0; i--) {
-            TerminalView pane = mSplitLayout.getTerminalViewByOrder(i);
-            if (pane != null && pane != targetView) {
-                mSplitLayout.setFocusedPaneIndex(i);
-                mSplitLayout.closeFocusedPane();
-            }
+        if (mSplitLayout != null) {
+            mSplitLayout.toggleZoomFocusedPane();
         }
-
         if (mActivity != null) {
             mActivity.termuxSessionListNotifyUpdated();
         }
