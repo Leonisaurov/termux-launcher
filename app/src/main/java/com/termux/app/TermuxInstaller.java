@@ -249,6 +249,33 @@ final class TermuxInstaller {
                         throw new RuntimeException("Moving termux prefix staging to prefix directory failed");
                     }
 
+                    // Patch the second-stage script to skip the `id -u` call
+                    // SELinux on Android 14+ blocks execve() of ELF binaries from app_data_file,
+                    // so we replace `id -u` with the app's actual UID
+                    try {
+                        int uid = android.os.Process.myUid();
+                        File secondStageFile = new File(TERMUX_PREFIX_DIR_PATH, BOOTSTRAP_SECOND_STAGE_NEW_PATH);
+                        if (!secondStageFile.isFile()) {
+                            secondStageFile = new File(TERMUX_PREFIX_DIR_PATH, BOOTSTRAP_SECOND_STAGE_OLD_PATH);
+                        }
+                        if (secondStageFile.isFile()) {
+                            String content = new String(java.nio.file.Files.readAllBytes(secondStageFile.toPath()),
+                                java.nio.charset.StandardCharsets.UTF_8);
+                            String oldLine = "uid=\"$(id -u 2>&1)\"";
+                            String newLine = "uid=\"" + uid + "\"  # patched by TermuxInstaller";
+                            if (content.contains(oldLine)) {
+                                content = content.replace(oldLine, newLine);
+                                java.nio.file.Files.write(secondStageFile.toPath(), content.getBytes(
+                                    java.nio.charset.StandardCharsets.UTF_8));
+                                Logger.logInfo(LOG_TAG, "Patched second-stage script: replaced id -u with uid=" + uid);
+                            } else {
+                                Logger.logInfo(LOG_TAG, "Could not find id -u line in second-stage script (may already be patched)");
+                            }
+                        }
+                    } catch (Exception e) {
+                        Logger.logErrorExtended(LOG_TAG, "Failed to patch second-stage script: " + e.getMessage());
+                    }
+
                     // Safety net: ensure all binaries have execute permissions
                     String[] executableDirs = {"bin", "libexec", "lib/apt"};
                     for (String dir : executableDirs) {
